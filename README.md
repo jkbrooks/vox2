@@ -105,3 +105,37 @@ If you like our work, please consider supporting us on Patreon, BuyMeACoffee, or
 ## Assets Used
 
 - [Connection Serif Font (SIL Open Font)](https://fonts2u.com/connection-serif.font)
+
+---
+
+## Running the Constitutional Agent in GitHub Codespaces
+
+### 1. Open a Codespace
+1. On the repo page (`jkbrooks/vox2`), click the green **Code** button and choose the **Codespaces** tab.
+2. Select **Create codespace on main** and wait for the dev-container to finish building. The container already includes Python 3, Node LTS, Rust, and the GitHub CLI, and it automatically installs `requirements.txt`.
+
+### 2. Provide API keys
+In the Codespace terminal (or via Codespace **Secrets**) set any required variables:
+```bash
+export ANTHROPIC_API_KEY=<your_key>
+# The built-in $GITHUB_TOKEN is already scoped for repo access
+```
+
+### 3. Run the agent
+```bash
+python scripts/agent.py
+```
+By default the agent runs **3 cycles** as a smoke-test; adjust `cycles` in `scripts/agent.py` for longer sessions.
+
+### 4. Connect from Cursor or any SSH client (optional)
+If you’d like to work from your local Cursor editor:
+```bash
+# List your codespaces
+gh codespace list
+# Open an SSH tunnel to the codespace
+gh codespace ssh -c <codespace_name>
+```
+Paste the printed ssh command into Cursor’s **Remote via SSH** dialog. More info: <https://docs.github.com/en/codespaces/developing-in-a-codespace/using-ssh-connections-in-codespaces>
+
+---
+
