@@ -1,0 +1,10 @@
+{
+  "L1_agent": "Constitutional Task Agent v1",
+  "L2_coordination": "GitHub Project Board",
+  "L3_product": "vox2",
+  "L4_feature": "initial",
+  "L5_task": "bootstrap",
+  "task_tree": "",
+  "mode": "execution",
+  "memory": []
+}

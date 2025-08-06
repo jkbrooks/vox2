@@ -1,0 +1,5 @@
+anthropic>=0.18.0
+PyYAML>=6.0
+click>=8.0
+rich>=13.0
+PyGithub>=2.0
