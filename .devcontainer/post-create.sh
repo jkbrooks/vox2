@@ -1,33 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# This script is executed by Codespaces after the container is created.
-# It uses a personal access token (PAT) stored as a Codespaces secret
-# to grant the environment access to other private repositories.
+echo "--- [DEBUG] Running post-create.sh ---"
+echo "[DEBUG] Timestamp: $(date)"
+echo "[DEBUG] User: $(whoami)"
 
-# GH_PAT should be set as a Codespaces secret for this repository.
+echo "[DEBUG] Checking for GitHub CLI (gh)..."
+if ! command -v gh &> /dev/null; then
+    echo "❌ [DEBUG] ERROR: 'gh' command not found. Aborting."
+    exit 1
+fi
+echo "✅ [DEBUG] 'gh' command is available in PATH."
+
+echo "[DEBUG] Checking for GH_PAT secret..."
 if [[ -n "${GH_PAT:-}" ]]; then
-  echo "🔑 Configuring GitHub authentication with custom PAT..."
+  echo "✅ [DEBUG] GH_PAT secret is present."
+  echo "🔑 [DEBUG] Proceeding with custom PAT authentication..."
 
-  # The default GITHUB_TOKEN provided by Codespaces is scoped only to the
-  # current repository. To use our own PAT with wider permissions, we must
-  # first unset this environment variable before logging in.
-  ORIGINAL_GITHUB_TOKEN="${GITHUB_TOKEN-}"
+  echo "[DEBUG] Unsetting default GITHUB_TOKEN to avoid conflicts..."
   unset GITHUB_TOKEN
 
-  # Log in to the GitHub CLI non-interactively using the PAT.
+  echo "[DEBUG] Attempting 'gh auth login' with the provided token..."
   echo "$GH_PAT" | gh auth login --hostname github.com --with-token
+  echo "✅ [DEBUG] 'gh auth login' completed."
 
-  # Configure git to use the same token for all git operations.
+  echo "[DEBUG] Running 'gh auth setup-git' to configure git..."
   gh auth setup-git
+  echo "✅ [DEBUG] 'gh auth setup-git' completed."
 
-  # Restore the GITHUB_TOKEN variable with our PAT for other tools that may need it.
-  export GITHUB_TOKEN="$GH_PAT"
-
-  echo "✅ GitHub CLI & git are now authenticated using the custom PAT."
-  echo "You can now access other private repositories that the token is scoped for."
+  echo "[DEBUG] Verifying final auth status with 'gh auth status':"
+  gh auth status
+  
+  echo "🎉 [DEBUG] Script finished. Custom PAT should now be active."
 else
-  echo "⚠️ GH_PAT secret not found."
-  echo "Please create a secret in this repository's Codespaces settings to enable automatic authentication."
+  echo "⚠️ [DEBUG] GH_PAT secret not found or is empty."
+  echo "[DEBUG] Please double-check that a secret named GH_PAT is configured for this repository in Codespaces settings."
+  echo "[DEBUG] Default Codespaces token will be used."
 fi
 
+echo "--- [DEBUG] post-create.sh finished ---"
