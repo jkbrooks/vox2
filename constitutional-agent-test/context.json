@@ -1,0 +1,11 @@
+{
+  "L1_agent": "Constitutional Task Agent v1",
+  "L2_coordination": "GitHub Project Board",
+  "L3_product": "[Dynamic from repo]",
+  "L4_feature": "[Current milestone/epic]",
+  "L5_task": "[Current issue]",
+  "task_tree": "[Generated from dependencies]",
+  "mode": "execution",
+  "memory": []
+}
+
