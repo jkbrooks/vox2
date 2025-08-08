@@ -17,3 +17,5 @@ Cargo.lock
 yarn-error.log
 
 .pnpm-store
+
+scrap

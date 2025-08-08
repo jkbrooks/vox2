@@ -1,0 +1,63 @@
+# Stakeholders for the Vox2 Project
+# These represent the various parties interested in the system
+
+stakeholders:
+  - id: "human-lead"
+    name: "Project Lead (Human)"
+    role: "Ultimate decision maker and direction setter"
+    concerns:
+      - "Code quality and maintainability"
+      - "System reliability"
+      - "Development velocity"
+      - "Agent effectiveness"
+    viewpoints:
+      - "strategic"
+      - "quality"
+      
+  - id: "agent-executor"
+    name: "Execution Agent"
+    role: "Carries out specific implementation tasks"
+    concerns:
+      - "Clear task definition"
+      - "Available tools and permissions"
+      - "Success criteria"
+      - "Time constraints"
+    viewpoints:
+      - "execution"
+      - "tactical"
+      
+  - id: "agent-reviewer"
+    name: "Review Agent"
+    role: "Evaluates code changes and suggests improvements"
+    concerns:
+      - "Code consistency"
+      - "Best practices adherence"
+      - "Test coverage"
+      - "Documentation completeness"
+    viewpoints:
+      - "quality"
+      - "improvement"
+      
+  - id: "future-agents"
+    name: "Future Agents"
+    role: "Agents not yet created but will work with the system"
+    concerns:
+      - "Clear interfaces"
+      - "Consistent patterns"
+      - "Good documentation"
+      - "Extensibility"
+    viewpoints:
+      - "evolution"
+      - "interoperability"
+      
+  - id: "system-itself"
+    name: "The Vox2 System"
+    role: "The codebase as an entity with its own 'interests'"
+    concerns:
+      - "Coherence and consistency"
+      - "Performance"
+      - "Evolvability"
+      - "Correctness"
+    viewpoints:
+      - "architectural"
+      - "systemic"

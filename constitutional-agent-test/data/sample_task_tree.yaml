@@ -1,0 +1,56 @@
+# Sample Task Tree for Testing Constitutional Agent
+# This represents a simple refactoring task on the vox2 codebase
+
+root:
+  id: "task-001"
+  title: "Refactor Error Handling in Vox2"
+  description: "Improve error handling across the codebase for better reliability"
+  level: "L3"  # Product level task
+  entity_of_interest: "vox2 error handling system"
+  status: "in_progress"
+  
+  children:
+    - id: "task-001-1"
+      title: "Audit Current Error Handling"
+      description: "Review existing error handling patterns in the codebase"
+      level: "L4"  # Feature level
+      entity_of_interest: "current error patterns"
+      status: "completed"
+      
+    - id: "task-001-2"
+      title: "Implement Standardized Error Types"
+      description: "Create consistent error types across modules"
+      level: "L4"
+      entity_of_interest: "error type system"
+      status: "in_progress"
+      dependencies: ["task-001-1"]
+      
+      children:
+        - id: "task-001-2-1"
+          title: "Define Error Type Hierarchy"
+          description: "Create base error types and inheritance structure"
+          level: "L5"  # Task level
+          entity_of_interest: "error type definitions"
+          status: "in_progress"
+          
+        - id: "task-001-2-2"
+          title: "Update Module Errors"
+          description: "Replace ad-hoc errors with standardized types"
+          level: "L5"
+          entity_of_interest: "module error implementations"
+          status: "pending"
+          dependencies: ["task-001-2-1"]
+          
+    - id: "task-001-3"
+      title: "Add Error Recovery Mechanisms"
+      description: "Implement retry logic and fallback strategies"
+      level: "L4"
+      entity_of_interest: "error recovery system"
+      status: "pending"
+      dependencies: ["task-001-2"]
+
+# Metadata about the tree
+metadata:
+  created: "2024-01-08"
+  version: "0.1"
+  context: "This is a simplified task tree for testing agent navigation and constitutional thinking"
