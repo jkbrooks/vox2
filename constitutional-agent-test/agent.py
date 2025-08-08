@@ -15,9 +15,13 @@ class ConstitutionalAgent:
         self.task_tree = self.load_task_tree()
         self.stakeholders = self.load_stakeholders()
         self.viewpoints = self.load_viewpoints()
+        self.entities = self.load_entities()
         self.current_task_id = None
+        self.current_eoi = None  # Current Entity of Interest
+        self.eoi_history = []  # EoI navigation history
         self.mode = "execution"  # or "constitutional"
         self.reflection_log = []
+        self.error_patterns = {}  # Track patterns for EoI shift detection
         
     def load_prompt_template(self, path):
         """Loads the constitutional prompt template from the given path."""
@@ -56,6 +60,19 @@ class ConstitutionalAgent:
                 with open(vp_file, 'r') as f:
                     viewpoints[vp_file.stem] = f.read()
         return viewpoints
+    
+    def load_entities(self):
+        """Loads entity catalog from YAML."""
+        entities_path = self.data_dir / "entities.yaml"
+        try:
+            with open(entities_path, 'r') as f:
+                data = yaml.safe_load(f)
+                if data and 'entities' in data:
+                    # Index by ID for quick lookup
+                    return {e['id']: e for e in data['entities']}
+        except FileNotFoundError:
+            print(f"Warning: Entities catalog not found at {entities_path}")
+        return {}
     
     def navigate_to_task(self, task_id: str):
         """Navigate to a specific task in the tree."""
@@ -207,6 +224,168 @@ class ConstitutionalAgent:
                 f.write(f"**Task**: {reflection['task_id']} | **Mode**: {reflection['mode']}\n")
                 f.write(f"{reflection['insight']}\n\n")
     
+    def detect_eoi_shift_trigger(self, current_context: Dict[str, Any]) -> tuple[bool, Optional[str], str]:
+        """
+        Detect if we should shift Entity of Interest based on patterns
+        
+        Returns:
+            (should_shift, direction/target, reason)
+        """
+        # Track error patterns
+        if 'error' in str(current_context).lower():
+            error_key = current_context.get('error_type', 'general')
+            self.error_patterns[error_key] = self.error_patterns.get(error_key, 0) + 1
+            
+            # If same error repeated 3+ times, zoom out
+            if self.error_patterns[error_key] >= 3:
+                return True, "zoom_out", f"Repeated {error_key} errors suggest systemic issue"
+        
+        # Check for unclear requirements
+        if current_context.get('ambiguity_detected'):
+            return True, "zoom_out", "Unclear requirements need broader context"
+        
+        # Check if stuck on same EoI
+        if len(self.eoi_history) >= 3:
+            recent = self.eoi_history[-3:]
+            if all(h.get('to') == self.current_eoi for h in recent):
+                return True, "lateral", "Stuck on current entity, need fresh perspective"
+        
+        # Check for stakeholder conflicts
+        if current_context.get('stakeholder_conflict'):
+            # Navigate to architecture level to resolve
+            for entity_id, entity in self.entities.items():
+                if entity.get('type') == 'architecture':
+                    return True, entity_id, "Navigate to architecture to resolve stakeholder conflict"
+        
+        # Pattern detected - consider constitutional thinking
+        if current_context.get('pattern_count', 0) >= 3:
+            return True, "zoom_out", "Pattern detected, need systemic view"
+        
+        return False, None, ""
+    
+    def navigate_eoi(self, target: str, reason: str = "") -> bool:
+        """
+        Execute an Entity of Interest navigation
+        
+        Args:
+            target: Direction ('zoom_in', 'zoom_out', 'lateral') or specific entity ID
+            reason: Why we're navigating
+            
+        Returns:
+            True if navigation successful
+        """
+        # Record in history
+        self.eoi_history.append({
+            "from": self.current_eoi,
+            "to": target,
+            "timestamp": "now",  # Would use real timestamp
+            "reason": reason
+        })
+        
+        # Log as constitutional insight
+        insight = f"""
+CONSTITUTIONAL_INSIGHT:
+- EoI: Navigating from {self.current_eoi} to {target}
+- Stakeholders Affected: System architects, developers
+- Concerns Addressed: Navigation efficiency, context relevance
+- Architectural Principle: Dynamic focus adjustment improves problem-solving
+- Correspondence: {self.current_eoi} -> {target}
+- Action: Shift Entity of Interest to {target}
+- Reason: {reason}
+"""
+        self.capture_reflection(insight)
+        
+        # Handle directional navigation
+        if target in ["zoom_in", "zoom_out", "lateral"]:
+            new_eoi = self._find_related_entity(target)
+            if new_eoi:
+                self.current_eoi = new_eoi
+                print(f"Navigated {target} to: {new_eoi}")
+                return True
+            else:
+                print(f"No {target} navigation available from {self.current_eoi}")
+                return False
+        
+        # Handle direct navigation to specific entity
+        elif target in self.entities or self._is_task(target):
+            self.current_eoi = target
+            print(f"Navigated directly to: {target}")
+            
+            # If navigating to task, update current_task_id too
+            if self._is_task(target):
+                self.current_task_id = target
+            
+            return True
+        
+        print(f"Unknown navigation target: {target}")
+        return False
+    
+    def _find_related_entity(self, direction: str) -> Optional[str]:
+        """Find a related entity based on navigation direction"""
+        if not self.current_eoi:
+            return None
+            
+        current = self.entities.get(self.current_eoi, {})
+        
+        if direction == "zoom_out":
+            # Look for parent in correspondences
+            for entity_id, entity in self.entities.items():
+                if 'correspondences' in entity:
+                    for corr in entity['correspondences']:
+                        if (corr.get('target') == self.current_eoi and 
+                            corr.get('relation') in ['contains', 'governs', 'part_of']):
+                            return entity_id
+        
+        elif direction == "zoom_in":
+            # Look for child in current entity's correspondences
+            if 'correspondences' in current:
+                for corr in current['correspondences']:
+                    if corr.get('relation') in ['contains', 'governs']:
+                        return corr.get('target')
+        
+        elif direction == "lateral":
+            # Find sibling entities (same type or level)
+            current_type = current.get('type')
+            current_level = current.get('level')
+            for entity_id, entity in self.entities.items():
+                if (entity_id != self.current_eoi and 
+                    (entity.get('type') == current_type or 
+                     entity.get('level') == current_level)):
+                    return entity_id
+        
+        return None
+    
+    def _is_task(self, entity_id: str) -> bool:
+        """Check if an entity ID is a task"""
+        return entity_id.startswith("task-") or self.find_task(entity_id) is not None
+    
+    def get_eoi_context(self) -> Dict[str, Any]:
+        """Get full context for current Entity of Interest"""
+        if not self.current_eoi:
+            return {}
+            
+        context = {"id": self.current_eoi}
+        
+        # Get entity details
+        if self.current_eoi in self.entities:
+            context.update(self.entities[self.current_eoi])
+        elif self._is_task(self.current_eoi):
+            task = self.find_task(self.current_eoi)
+            if task:
+                context.update(task)
+                context['type'] = 'task'
+        
+        # Add navigation suggestions
+        context['navigation_options'] = []
+        if self._find_related_entity("zoom_out"):
+            context['navigation_options'].append("zoom_out")
+        if self._find_related_entity("zoom_in"):
+            context['navigation_options'].append("zoom_in")
+        if self._find_related_entity("lateral"):
+            context['navigation_options'].append("lateral")
+        
+        return context
+    
     def run_cycle(self):
         """Run one cycle of agent operation."""
         print("\n=== Agent Cycle Start ===")
@@ -215,11 +394,31 @@ class ConstitutionalAgent:
         if not self.current_task_id:
             self.navigate_to_task("task-001-2-1")  # Start with a specific task
         
+        # Set initial EoI if not set
+        if not self.current_eoi:
+            self.current_eoi = self.current_task_id
+        
+        # Get current context
+        current_context = {
+            "mode": self.mode,
+            "task_id": self.current_task_id,
+            "eoi": self.get_eoi_context()
+        }
+        
+        # Check for EoI shift triggers
+        should_shift, target, reason = self.detect_eoi_shift_trigger(current_context)
+        if should_shift and target:
+            print(f"\nEoI shift triggered: {reason}")
+            self.navigate_eoi(target, reason)
+            # Update context after navigation
+            current_context["eoi"] = self.get_eoi_context()
+        
         # Get context and inject into prompt
         prompt = self.inject_context()
         
         print(f"\nCurrent Mode: {self.mode}")
         print(f"Current Task: {self.current_task_id}")
+        print(f"Current EoI: {self.current_eoi or 'Not set'}")
         
         # Simulate some work
         print("\n--- Generated Prompt Preview (first 500 chars) ---")

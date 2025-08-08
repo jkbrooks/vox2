@@ -1,0 +1,225 @@
+# Entity Catalog for Dynamic EoI Navigation
+# Entities can be technical, organizational, conceptual, or process-based
+
+entities:
+  # Technical Entities (Components, Systems, Services)
+  - id: "auth-system"
+    type: "component"
+    name: "Authentication System"
+    level: "L4"  # Feature level
+    description: "Handles user authentication and session management"
+    stakeholders: ["security-team", "users", "api-consumers"]
+    concerns: 
+      - "authentication-flow"
+      - "session-security"
+      - "token-management"
+      - "password-policies"
+    correspondences:
+      - relation: "part_of"
+        target: "security-architecture"
+      - relation: "implements"
+        target: "oauth2-pattern"
+      - relation: "depends_on"
+        target: "user-database"
+    
+  - id: "api-gateway"
+    type: "service"
+    name: "API Gateway Service"
+    level: "L3"  # Product level
+    description: "Central entry point for all API requests"
+    stakeholders: ["api-consumers", "devops", "security-team"]
+    concerns:
+      - "rate-limiting"
+      - "request-routing"
+      - "authentication"
+      - "monitoring"
+    correspondences:
+      - relation: "uses"
+        target: "auth-system"
+      - relation: "part_of"
+        target: "microservices-architecture"
+        
+  - id: "user-database"
+    type: "datastore"
+    name: "User Database"
+    level: "L4"
+    description: "Persistent storage for user accounts and profiles"
+    stakeholders: ["dba", "privacy-officer", "developers"]
+    concerns:
+      - "data-integrity"
+      - "performance"
+      - "privacy-compliance"
+      - "backup-recovery"
+        
+  # Process Entities (Workflows, Pipelines, Methodologies)
+  - id: "deployment-pipeline"
+    type: "process"
+    name: "CI/CD Deployment Pipeline"
+    level: "L2"  # Coordination level
+    description: "Automated build, test, and deployment workflow"
+    stakeholders: ["devops", "qa", "release-manager"]
+    concerns:
+      - "deployment-speed"
+      - "rollback-capability"
+      - "test-coverage"
+      - "environment-parity"
+    correspondences:
+      - relation: "deploys"
+        target: "api-gateway"
+      - relation: "validates"
+        target: "test-suite"
+        
+  - id: "code-review-process"
+    type: "process"
+    name: "Code Review Workflow"
+    level: "L2"
+    description: "Peer review process for code changes"
+    stakeholders: ["developers", "tech-lead", "qa"]
+    concerns:
+      - "code-quality"
+      - "knowledge-sharing"
+      - "standards-compliance"
+      - "review-turnaround"
+        
+  # Conceptual Entities (Patterns, Architectures, Principles)
+  - id: "security-architecture"
+    type: "architecture"
+    name: "Security Architecture"
+    level: "L3"
+    description: "Overall security design and principles"
+    stakeholders: ["security-team", "architects", "compliance"]
+    concerns:
+      - "defense-in-depth"
+      - "least-privilege"
+      - "audit-logging"
+      - "threat-modeling"
+    correspondences:
+      - relation: "governs"
+        target: "auth-system"
+      - relation: "requires"
+        target: "security-patterns"
+        
+  - id: "microservices-architecture"
+    type: "architecture"
+    name: "Microservices Architecture"
+    level: "L3"
+    description: "Service-oriented architectural style"
+    stakeholders: ["architects", "developers", "devops"]
+    concerns:
+      - "service-boundaries"
+      - "data-consistency"
+      - "inter-service-communication"
+      - "service-discovery"
+        
+  - id: "oauth2-pattern"
+    type: "pattern"
+    name: "OAuth 2.0 Pattern"
+    level: "L4"
+    description: "Authorization framework pattern"
+    stakeholders: ["security-team", "api-consumers"]
+    concerns:
+      - "token-issuance"
+      - "scope-management"
+      - "refresh-flows"
+        
+  # Organizational Entities (Teams, Roles, Communication)
+  - id: "platform-team"
+    type: "organization"
+    name: "Platform Engineering Team"
+    level: "L2"
+    description: "Team responsible for infrastructure and tooling"
+    stakeholders: ["platform-engineers", "product-teams", "management"]
+    concerns:
+      - "developer-productivity"
+      - "platform-reliability"
+      - "tool-standardization"
+    correspondences:
+      - relation: "maintains"
+        target: "deployment-pipeline"
+      - relation: "supports"
+        target: "api-gateway"
+        
+  - id: "architecture-board"
+    type: "organization"
+    name: "Architecture Review Board"
+    level: "L2"
+    description: "Governance body for architectural decisions"
+    stakeholders: ["architects", "tech-leads", "cto"]
+    concerns:
+      - "architectural-consistency"
+      - "technical-debt"
+      - "standards-adoption"
+    correspondences:
+      - relation: "reviews"
+        target: "security-architecture"
+      - relation: "approves"
+        target: "microservices-architecture"
+        
+  # Quality Attribute Entities
+  - id: "performance-requirements"
+    type: "quality-attribute"
+    name: "System Performance Requirements"
+    level: "L3"
+    description: "Non-functional performance specifications"
+    stakeholders: ["users", "product-owner", "sre"]
+    concerns:
+      - "response-time"
+      - "throughput"
+      - "scalability"
+      - "resource-efficiency"
+    correspondences:
+      - relation: "constrains"
+        target: "api-gateway"
+      - relation: "measured_by"
+        target: "monitoring-system"
+        
+# Entity Types Definition
+entity_types:
+  - type: "component"
+    description: "Software component or module"
+    typical_concerns: ["functionality", "interfaces", "dependencies"]
+    
+  - type: "service"
+    description: "Running service or application"
+    typical_concerns: ["availability", "performance", "api-contracts"]
+    
+  - type: "datastore"
+    description: "Database or data storage system"
+    typical_concerns: ["consistency", "durability", "performance"]
+    
+  - type: "process"
+    description: "Workflow or methodology"
+    typical_concerns: ["efficiency", "quality", "compliance"]
+    
+  - type: "architecture"
+    description: "Architectural style or framework"
+    typical_concerns: ["principles", "constraints", "evolution"]
+    
+  - type: "pattern"
+    description: "Design or implementation pattern"
+    typical_concerns: ["applicability", "trade-offs", "variations"]
+    
+  - type: "organization"
+    description: "Team, role, or organizational structure"
+    typical_concerns: ["responsibilities", "communication", "governance"]
+    
+  - type: "quality-attribute"
+    description: "Non-functional requirement or constraint"
+    typical_concerns: ["measurement", "trade-offs", "validation"]
+
+# Correspondence Types
+correspondence_types:
+  - "implements"     # A implements B (realization)
+  - "part_of"       # A is part of B (composition)
+  - "depends_on"    # A depends on B (dependency)
+  - "uses"          # A uses B (usage)
+  - "governs"       # A governs B (governance)
+  - "constrains"    # A constrains B (constraint)
+  - "validates"     # A validates B (verification)
+  - "deploys"       # A deploys B (deployment)
+  - "maintains"     # A maintains B (ownership)
+  - "reviews"       # A reviews B (oversight)
+  - "approves"      # A approves B (authorization)
+  - "conflicts_with" # A conflicts with B (tension)
+  - "refines"       # A refines B (elaboration)
+  - "measured_by"   # A is measured by B (metrics)

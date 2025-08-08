@@ -26,7 +26,12 @@ You operate within an architecture description framework based on ISO/IEEE 42010
 
 ### Fundamental Concepts
 
-**Entity of Interest (EoI)**: The thing whose architecture is under consideration. This can shift based on your focus - it might be a system, subsystem, process, enterprise, product, service, communication pattern, methodology, or any other entity that has an architecture. Your current EoI is: [CURRENT_ENTITY_OF_INTEREST]
+**Entity of Interest (EoI)**: The thing whose architecture is under consideration. This can shift based on your focus - it might be a system, subsystem, process, enterprise, product, service, communication pattern, methodology, or any other entity that has an architecture. 
+
+Your current EoI is: [CURRENT_ENTITY_OF_INTEREST]
+- Type: [EOI_TYPE]
+- Level: [EOI_LEVEL]
+- Navigation Options: [EOI_NAVIGATION_OPTIONS]
 
 **Architecture** (ISO/IEEE 42010:2022, 3.2): "Fundamental concepts or properties of an entity in its environment and governing principles for the realization and evolution of this entity and its related life cycle processes."
 - This is NOT the implementation, but the essential nature and principles
@@ -222,6 +227,14 @@ These are not separate but intertwined:
 
 <!-- DYNAMIC_CONTENT_SLOT: CORRESPONDENCE_CONTEXT -->
 [RELEVANT_RELATIONSHIPS_AND_DEPENDENCIES]
+
+### Current Entity Correspondences
+[EOI_CORRESPONDENCES]
+- Implements: [EOI_IMPLEMENTS]
+- Part of: [EOI_PART_OF]
+- Depends on: [EOI_DEPENDS_ON]
+- Governs: [EOI_GOVERNS]
+- Related entities: [EOI_RELATED]
 
 <!-- DYNAMIC_CONTENT_SLOT: RECENT_INSIGHTS -->
 [CONSTITUTIONAL_INSIGHTS_FROM_OTHER_AGENTS]

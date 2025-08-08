@@ -238,6 +238,10 @@ class DynamicContextInjector:
         self.stakeholders = None
         self.viewpoints = {}
         self.insights_log = []
+        self.entities = {}  # Catalog of all entities
+        self.current_eoi = None  # Current entity of interest
+        self.eoi_history = []  # Navigation history
+        self.correspondences = {}  # Entity relationships
         
     def load_data(self):
         """Load all available data sources"""
@@ -252,6 +256,22 @@ class DynamicContextInjector:
         if stakeholder_path.exists():
             with open(stakeholder_path, 'r') as f:
                 self.stakeholders = yaml.safe_load(f)
+        
+        # Load entities catalog
+        entities_path = self.data_dir / "entities.yaml"
+        if entities_path.exists():
+            with open(entities_path, 'r') as f:
+                entities_data = yaml.safe_load(f)
+                if entities_data and 'entities' in entities_data:
+                    # Index entities by ID for quick lookup
+                    for entity in entities_data['entities']:
+                        self.entities[entity['id']] = entity
+                        # Build correspondence index
+                        if 'correspondences' in entity:
+                            for corr in entity['correspondences']:
+                                if entity['id'] not in self.correspondences:
+                                    self.correspondences[entity['id']] = []
+                                self.correspondences[entity['id']].append(corr)
         
         # Load viewpoints
         viewpoint_dir = self.data_dir / "viewpoints"
@@ -425,6 +445,195 @@ Key ISO/IEEE 42010 Concepts:
                 content=content,
                 priority=Priority.LOW
             )
+    
+    def set_entity_of_interest(self, eoi_id: str, eoi_type: Optional[str] = None, 
+                              trigger: str = "manual", reason: str = ""):
+        """
+        Set the current Entity of Interest, supporting arbitrary entity types
+        
+        Args:
+            eoi_id: Identifier of the entity (could be task ID or entity ID)
+            eoi_type: Type of entity (component, service, process, etc.)
+            trigger: What triggered this EoI change
+            reason: Human-readable reason for the change
+        """
+        # Record history
+        timestamp = json.dumps({"timestamp": "now", "trigger": trigger, "reason": reason})
+        self.eoi_history.append({
+            "from": self.current_eoi,
+            "to": eoi_id,
+            "type": eoi_type,
+            "trigger": trigger,
+            "reason": reason
+        })
+        
+        # Update current EoI
+        self.current_eoi = eoi_id
+        
+        # If it's a known entity, load its full context
+        if eoi_id in self.entities:
+            return self.entities[eoi_id]
+        # Otherwise, try to find it in the task tree
+        elif self.task_tree:
+            task = self._find_task_in_tree(self.task_tree, eoi_id)
+            if task:
+                return task
+        
+        return {"id": eoi_id, "type": eoi_type or "unknown"}
+    
+    def get_eoi_context(self, eoi_id: str) -> Dict[str, Any]:
+        """
+        Get full context for a specific entity of interest
+        
+        Returns dict with:
+        - entity details
+        - relevant stakeholders
+        - applicable viewpoints
+        - correspondences to other entities
+        """
+        context = {"id": eoi_id}
+        
+        # Get entity details
+        if eoi_id in self.entities:
+            entity = self.entities[eoi_id]
+            context.update(entity)
+            
+            # Get stakeholders for this entity
+            if 'stakeholders' in entity:
+                context['relevant_stakeholders'] = []
+                for sh_id in entity['stakeholders']:
+                    if self.stakeholders and 'stakeholders' in self.stakeholders:
+                        for sh in self.stakeholders['stakeholders']:
+                            if sh.get('id') == sh_id or sh.get('name') == sh_id:
+                                context['relevant_stakeholders'].append(sh)
+            
+            # Get correspondences
+            if eoi_id in self.correspondences:
+                context['correspondences'] = self.correspondences[eoi_id]
+                
+                # Also get reverse correspondences (who points to this entity)
+                context['reverse_correspondences'] = []
+                for other_id, corrs in self.correspondences.items():
+                    if other_id != eoi_id:
+                        for corr in corrs:
+                            if corr.get('target') == eoi_id:
+                                context['reverse_correspondences'].append({
+                                    'from': other_id,
+                                    'relation': corr.get('relation'),
+                                    'to': eoi_id
+                                })
+        
+        return context
+    
+    def navigate_eoi(self, direction: str, reason: str = "") -> Optional[str]:
+        """
+        Navigate to a related entity based on direction
+        
+        Args:
+            direction: 'zoom_in', 'zoom_out', 'lateral', or specific entity ID
+            reason: Why we're navigating
+            
+        Returns:
+            New EoI ID if navigation successful, None otherwise
+        """
+        if not self.current_eoi:
+            return None
+            
+        current_context = self.get_eoi_context(self.current_eoi)
+        
+        if direction == "zoom_out":
+            # Find parent or containing entity
+            for corr in current_context.get('reverse_correspondences', []):
+                if corr['relation'] in ['part_of', 'implements', 'refined_by']:
+                    self.set_entity_of_interest(corr['from'], trigger="zoom_out", reason=reason)
+                    return corr['from']
+                    
+        elif direction == "zoom_in":
+            # Find child or component entity
+            for corr in current_context.get('correspondences', []):
+                if corr['relation'] in ['part_of', 'contains', 'governs']:
+                    self.set_entity_of_interest(corr['target'], trigger="zoom_in", reason=reason)
+                    return corr['target']
+                    
+        elif direction == "lateral":
+            # Find sibling or related entity at same level
+            # Look for entities that share a parent
+            if 'reverse_correspondences' in current_context:
+                for corr in current_context['reverse_correspondences']:
+                    if corr['relation'] == 'part_of':
+                        parent_id = corr['from']
+                        # Find other children of this parent
+                        if parent_id in self.correspondences:
+                            for sibling_corr in self.correspondences[parent_id]:
+                                if (sibling_corr['relation'] == 'part_of' and 
+                                    sibling_corr['target'] != self.current_eoi):
+                                    self.set_entity_of_interest(
+                                        sibling_corr['target'], 
+                                        trigger="lateral", 
+                                        reason=reason
+                                    )
+                                    return sibling_corr['target']
+        
+        elif direction in self.entities:
+            # Direct navigation to specific entity
+            self.set_entity_of_interest(direction, trigger="direct", reason=reason)
+            return direction
+            
+        return None
+    
+    def get_navigation_suggestions(self) -> List[Dict[str, str]]:
+        """
+        Suggest possible EoI navigations based on current context
+        
+        Returns list of suggestions with rationale
+        """
+        suggestions = []
+        
+        if not self.current_eoi:
+            # Suggest starting points
+            if self.task_tree:
+                suggestions.append({
+                    "action": "set_eoi",
+                    "target": "task-001",
+                    "reason": "Start with root task"
+                })
+            if self.entities:
+                # Find a high-level architecture entity
+                for entity in self.entities.values():
+                    if entity.get('type') == 'architecture':
+                        suggestions.append({
+                            "action": "set_eoi",
+                            "target": entity['id'],
+                            "reason": f"Start with {entity.get('name', 'architecture')}"
+                        })
+                        break
+        else:
+            current = self.get_eoi_context(self.current_eoi)
+            
+            # Suggest zoom out if we're deep in details
+            if current.get('level') in ['L4', 'L5']:
+                suggestions.append({
+                    "action": "zoom_out",
+                    "reason": "Get broader perspective from detailed level"
+                })
+            
+            # Suggest zoom in if we're at high level
+            if current.get('level') in ['L2', 'L3']:
+                suggestions.append({
+                    "action": "zoom_in", 
+                    "reason": "Examine implementation details"
+                })
+            
+            # Suggest lateral movement if stuck
+            if len(self.eoi_history) > 3:
+                recent = self.eoi_history[-3:]
+                if all(h['to'] == self.current_eoi for h in recent):
+                    suggestions.append({
+                        "action": "lateral",
+                        "reason": "Explore related entities (stuck on current)"
+                    })
+        
+        return suggestions
 
 # Example usage
 if __name__ == "__main__":
