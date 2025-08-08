@@ -24,10 +24,10 @@ def test_without_llm():
     
     try:
         # Create agent (should work without API key)
-        workspace = Path.cwd().parent
+        workspace = Path.cwd().parent.parent  # Go up two levels from enhanced_version
         agent = EnhancedConstitutionalAgent(
             workspace_root=str(workspace),
-            data_dir="data"
+            data_dir=str(Path.cwd().parent / "data")  # Point to shared data
         )
         
         # Test basic capabilities
@@ -76,10 +76,10 @@ def test_with_llm():
         return
     
     # Create agent with LLM
-    workspace = Path.cwd().parent
+    workspace = Path.cwd().parent.parent  # Go up two levels from enhanced_version
     agent = EnhancedConstitutionalAgent(
         workspace_root=str(workspace),
-        data_dir="data"
+        data_dir=str(Path.cwd().parent / "data")  # Point to shared data
     )
     
     # Simple task that won't break anything
@@ -106,11 +106,11 @@ def main():
     print("="*70)
     
     # Check if we're in the right place
-    workspace = Path.cwd().parent
+    workspace = Path.cwd().parent.parent  # Go up two levels from enhanced_version
     if not (workspace / "Cargo.toml").exists():
-        print("\n❌ Error: Must run from constitutional-agent-test directory")
+        print("\n❌ Error: Voxelize Cargo.toml not found")
         print(f"   Current: {Path.cwd()}")
-        print(f"   Expected: vox2/constitutional-agent-test/")
+        print(f"   Looking in: {workspace}")
         return 1
     
     print(f"\n📁 Workspace: {workspace}")

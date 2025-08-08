@@ -11,7 +11,11 @@ from datetime import datetime
 from enum import Enum
 
 # Import base agent and new tools
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / "original_version"))
 from agent import ConstitutionalAgent
+
+# Import tools from current directory
 from tools import FileTools, CommandTools, CodebaseTools
 from llm_client import LLMClient
 
