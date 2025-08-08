@@ -1,6 +1,11 @@
 """
 Context Manager for Constitutional Agent
 Handles dynamic context injection with token budget awareness
+
+Version: 0.5 (Simplified Implementation)
+Note: This implements core concepts from prompt_strategy.md (v1.0) but omits advanced features
+like caching, learning loops, and full versioning for development brevity. Future versions will
+incorporate these based on empirical testing and constitutional reflections from actual usage.
 """
 
 import json

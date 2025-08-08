@@ -1,5 +1,11 @@
 # Dynamic Prompt Strategy for Constitutional Agents
 
+**Version: 1.0** (Design Specification)  
+**Status: Not fully implemented in context_manager.py (v0.5)**
+
+## Implementation Note
+The context_manager.py currently implements a simplified version (v0.5) of this strategy for development brevity. Key concepts like triggers, token allocation, and prioritization are present but not all advanced features (caching, learning loops, versioning) are wired in. Future iterations will close this gap based on empirical testing and constitutional reflections.
+
 ## Core Principle: Context Should Match Cognitive Focus
 
 The prompt should change not just when the Entity of Interest (EoI) changes, but when the agent's cognitive needs shift. This creates several trigger points for prompt updates.
