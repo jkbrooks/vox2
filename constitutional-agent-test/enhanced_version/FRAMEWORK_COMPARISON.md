@@ -6,130 +6,102 @@ References:
 - Open SWE (LangGraph-based) — [github.com/langchain-ai/open-swe](https://github.com/langchain-ai/open-swe)
 - Claude Code (terminal/IDE agent) — [github.com/anthropics/claude-code](https://github.com/anthropics/claude-code)
 
-## 1) High-level positioning
+## 1) Scope for MVP (autonomous loop, small features)
 
-- Open SWE:
-  - Cloud-hosted, asynchronous coding agent built on LangGraph.
-  - Distinct planning step with user approval; parallel task execution; end-to-end task mgmt (issues and PRs).
-  - Can be run via UI and via GitHub issue labels (e.g., `open-swe`, `open-swe-auto`).
-  - Source: [Open SWE](https://github.com/langchain-ai/open-swe)
-
-- Claude Code:
-  - Agentic coding tool living in terminal/IDE; understands codebase, executes routine tasks, handles git workflows via natural language.
-  - Emphasizes local developer loop (edits, explains, runs commands, manages branches/PRs) with light setup.
-  - Source: [Claude Code](https://github.com/anthropics/claude-code)
-
-- Our kernel (current state):
-  - Minimal tool layer focused on Rust project: FileTools, CommandTools (cargo), CodebaseTools, simple planning/implementation/testing/review loop, optional LLM.
-  - Constitutional features (EoI navigation, reflections), but limited persistence, limited git/GitHub integration, and minimal editor/diff ergonomics.
+- Agent runs primarily unattended in short runs that validate task-tree navigation and directional correctness.
+- Human-in-the-loop UX and PR flows can come later.
+- Focus now: codebase understanding/navigation, edit ergonomics, Rust-first commands, strong git, frequent pushes.
 
 ## 2) Functional capabilities (by category)
 
-### A. Planning and human-in-the-loop
-- Open SWE:
-  - Dedicated planning step; user can accept/edit/reject plan before execution; plans can be triggered from UI or by GitHub label.
-  - Parallel execution of tasks in sandboxed environments; end-to-end task lifecycle (issue → PR).
-- Claude Code:
-  - Interactive terminal/IDE loop; accepts natural language commands; supports iterative refinement; can manage git workflows.
-- Our kernel:
-  - Simple planning phase; no explicit plan-approval checkpoint; no UI/IDE integration; single-task, single-threaded loop.
+### A. Planning (lightweight)
+- Small plan with steps and rationale is sufficient for MVP.
+- Optional: persist run state (ID/current step) later if needed; no UI/approval gates required now.
 
-Key gap for our kernel: explicit plan object with approval/edit hooks; resumable runs; conversational checkpoints.
+### B. Codebase understanding & navigation (expand)
+- What others provide
+  - Open SWE: Repository-scale reasoning, multi-file change planning, step-wise context routing across planning/execution; strong file targeting via planners. [link](https://github.com/langchain-ai/open-swe)
+  - Claude Code: Local repo awareness; fast search/explain/edit loops; multi-file edits driven by natural language; good heuristics for where to change. [link](https://github.com/anthropics/claude-code)
+- What we need for MVP parity-feel
+  - Regex and structural search: file-glob filters, regex, multi-file hits with surrounding context.
+  - Semantic/code-symbol search (pluggable): function/class symbol lookup; simple embedding-based nearest neighbors for code blocks/comments (opt-in backend).
+  - Workspace map/index (definition): an in-memory index capturing
+    - Files → language/type; modules/packages; tests mapping
+    - Symbols table (defs/refs where feasible), import graph per language
+    - Ownership hints (dirs → subsystems), common entry points (main, bin, tests)
+  - Cross-file dependency awareness: follow imports/uses to pull adjacent files into context automatically.
+  - Edit orchestration:
+    - For each proposed change: identify impacted files via search + dependency walk
+    - Order edits deterministically (interfaces before impls/tests)
+    - Generate a single consolidated diff across files, preview/dry-run, then apply.
+  - Rust-first practicality:
+    - Parse Cargo.toml to understand crates/bins/tests
+    - Map src/lib.rs, src/main.rs, and module trees; associate tests in tests/ and mod tests.
 
-### B. Codebase understanding & navigation
-- Open SWE:
-  - LangGraph-based orchestration; repository-level reasoning; multi-file edits; context routing across steps.
-- Claude Code:
-  - Strong local codebase understanding with commands to search, modify, and explain; supports multi-file workflows.
-- Our kernel:
-  - Basic file listing and substring search; relevance search is keyword-based; no structured semantic search or code map; limited multi-file coordination.
+Result: users can speak at a higher abstraction ("update progression system API and corresponding tests"), and the agent locates, edits, and validates across relevant files reliably.
 
-Key gap for our kernel: robust code search (regex and semantic), workspace map/index, cross-file dependency awareness, and edit orchestration.
+### C. Editing model (expand)
+- Needed capabilities
+  - Patch/diff abstraction: hunk-based edits with context lines; multi-file batch apply; preview/dry-run.
+  - File ops: create/move/delete; header/boilerplate insertion; license headers.
+  - Conflict-safe apply: rebase-aware 3-way merging when upstream changes occur; fallback to minimal-context retries.
+  - AST-assisted edits (language-specific):
+    - Rust focus for MVP: leverage rust-analyzer or tree-sitter for safe inserts/renames; run rustfmt post-edit.
+    - Surface planned edits as semantic ops when possible (rename symbol, add function, modify signature) then render to text.
+  - Multi-file coordination: transactional apply (all-or-nothing), with rollback via git if validation fails.
 
-### C. Editing model (diffs, patches, AST)
-- Open SWE:
-  - Multi-file edits, PR creation; typically works via planned steps that apply changes and validate.
-- Claude Code:
-  - Comfortable issuing diffs/edits; manages staged changes, commits, and branch flows.
-- Our kernel:
-  - Read/overwrite whole files; single-string replacement; no patch/diff abstraction; no AST-safe edits.
+Contrast to current kernel: today we overwrite whole files or do single replacement. We need an edit engine with hunks and Rust-centric AST helpers to feel “Claude/Open SWE-like.”
 
-Key gap for our kernel: patch/diff abstraction (line-hunks), file create/move/delete, AST-assisted edits for common languages, and conflict-safe apply.
+### D. Command execution & toolchain (Rust-first, extensible)
+- MVP approach
+  - Language adapter interface: build(), test(), fmt(), optional lint(), with stdout/stderr parsing to short summaries.
+  - Implement Rust adapter now: cargo check/test/build, rustfmt; basic error pattern extraction.
+  - Defer sandboxing; rely on Codespaces environment; rely on git to revert bad changes.
+  - Design for easy addition of Python adapter next (pytest/ruff/black), then JS/TS.
 
-### D. Command execution & toolchain
-- Open SWE:
-  - Executes commands/tests in sandbox; can run validations and formatting before PRs.
-- Claude Code:
-  - Runs commands/tests locally; integrates with git flows; supports iterative run-fix cycles.
-- Our kernel:
-  - Runs `cargo check/test/build`; generic `run_command`; no language-agnostic adapters, no test discovery/unified reporting, limited timeouts/retries.
+### E. Git integration (strong VCS; minimal GitHub)
+- Requirements
+  - Frequent, small commits with clear messages; branch hygiene (feature branches per task tree leaf).
+  - Ops: status/diff, add/restore, commit, stash, rebase, reset, tag snapshots.
+  - Push often to remote; GitHub integration limited to push for now (no PR orchestration needed).
+  - Provide quick rollback to last green commit.
 
-Key gap for our kernel: language-agnostic adapters (JS/TS, Python, Rust), test discovery/report unification, retry/backoff policies, and lint/format hooks.
+### F. Execution model (deprioritized)
+- Parallelism, sandboxing, and resumability are out-of-scope for MVP. Optional snapshotting via git tags or lightweight run state can be added later if needed.
 
-### E. Git & GitHub integration (issues/PRs/boards)
-- Open SWE:
-  - Creates GitHub issues and PRs automatically; can close issues upon completion.
-- Claude Code:
-  - Manages git branches/commits/PRs; designed to integrate with GitHub repo flows.
-- Our kernel:
-  - Has helper shell scripts for Projects v2, but no embedded git client, no commit/branch orchestration API, no PR creation, no review loops.
+### G. Observability and safety (later)
+- Nice-to-have after first successful run: per-run logs (ID, steps, commands, diffs), write-scope allowlist, and dry-run support.
 
-Key gap for our kernel: built-in git operations (status, branch, commit, rebase), PR creation/update/comments, and minimal Projects v2 affordances.
+## 3) Minimum viable kernel for autonomous MVP
 
-### F. Execution model (parallelism, sandboxing, resumability)
-- Open SWE:
-  - Parallel tasks; cloud sandbox per task; resilient execution; resumable state.
-- Claude Code:
-  - Single-user interactive loop; resilient to local environment; quick iteration.
-- Our kernel:
-  - Single task, single process; no resumability snapshot; no sandbox/container orchestration.
-
-Key gap for our kernel: run state persistence (checkpointing), resumable workflows, optional containerized runs for isolation.
-
-### G. Observability, cost, and safety
-- Open SWE:
-  - End-to-end task management visibility; UI provides plan/status; PRs as artifacts.
-- Claude Code:
-  - Terminal/IDE transcripts; integrates with git history; explicit commands and diffs.
-- Our kernel:
-  - Reflection log and stdout capture; no structured run logs/metrics; no cost tracking; limited safety rails.
-
-Key gap for our kernel: structured run logs, per-run IDs, token/cost budgets, guardrails (write-scopes, file allowlists), and dry-run support.
-
-## 3) Minimum viable kernel to replicate Cursor-like experience
-
-Goal: Enable multi-hour/day iterative development with human steering, on our terms, before considering deeper framework adoption.
+Goal: Enable multi-hour/day iterative development autonomously on small features before deeper framework adoption.
 
 Proposed minimal capability checklist:
 
-1) Planning & checkpoints
-   - Plan object with steps, rationale, and acceptance gates (approve/edit/reject).
-   - Resumable runs with persisted state (run ID, mode, EoI, step index, artifacts).
+1) Planning (light)
+   - Small plan object with steps and rationale; optional persisted run ID/state later.
 
-2) Code search & index
-   - Regex and subtree search; basic semantic/code-symbol search (pluggable backends).
-   - Workspace index (files, modules, tests, ownership hints) with quick filters.
+2) Code search & index (critical)
+   - Regex/substring search with file globs and context; semantic/symbol search (pluggable).
+   - Workspace index: files→modules/tests, symbol table, import graph, ownership hints.
 
-3) Editing ergonomics
-   - Patch/diff API (hunk-based), file create/move/delete, multi-file apply, preview/dry-run.
-   - Optional AST-assisted edits for Rust, Python, and JS/TS (incremental).
+3) Editing ergonomics (critical)
+   - Patch/diff hunk API, multi-file transactional apply, preview/dry-run, rollback via git.
+   - AST-assisted edits (Rust first: rust-analyzer/tree-sitter; rustfmt after edits).
 
-4) Commands & validations
-   - Language adapters: Rust (cargo), Python (pytest/ruff/black), JS/TS (pnpm/yarn, vitest/jest, eslint/prettier).
-   - Unified test runner interface with parsed results and short summaries.
+4) Commands & validations (Rust-first)
+   - Rust adapter now (cargo check/test/build, rustfmt); design interface for Python/JS next.
+   - Parse outputs to short, actionable summaries.
 
-5) Git/GitHub workflow (thin layer)
-   - Git operations: status/branch/commit/stash/rebase; patch staging.
-   - PR lifecycle: create/update description, link to issue, request review.
-   - Optional: Projects v2 status update helper.
+5) Git workflow (strong)
+   - Git ops: status/diff/add/restore/commit/stash/rebase/reset; frequent pushes.
+   - No PR flows required for MVP.
 
-6) Human-in-the-loop controls
-   - Checkpoints for plan, risky edits, large diffs; quick accept/decline or inline nudge.
-   - Run transcript and change summary outputs suitable for posting to issues/PRs.
+6) Human controls
+   - Not required for MVP beyond basic safety prompts if desired.
 
 7) Observability & safety
-   - Per-run log with steps, commands, outputs (truncated), diffs, metrics (tokens/time).
-   - Write-scope guard (allowed paths), env-sanitization, dry-run mode.
+   - Optional initial run; add structured logs/guards after first end-to-end success.
 
 8) Constitutional features (our differentiator)
    - EoI navigation hooks influence plan and context selection.
@@ -153,18 +125,17 @@ Primary gaps vs Open SWE / Claude Code:
 ## 5) Focused next steps (incremental roadmap)
 
 Phase A (Minimum viable loop)
-1. Add plan object + approval checkpoint; persist run state (JSON per run ID).
-2. Introduce patch/diff API (apply/preview), multi-file support, and dry-run.
-3. Add language adapters (Rust, Python, JS/TS) with unified test runner output.
-4. Implement basic git ops and PR creation (commit/branch/PR describe and link).
+1. Implement code search/index (regex + workspace map + basic symbols); wire into planning.
+2. Introduce patch/diff engine (preview/dry-run), multi-file transactional apply, rollback via git.
+3. Add Rust adapter (cargo check/test/build, rustfmt); short error summaries.
+4. Implement strong git operations and frequent push.
 
 Phase B (Navigation & context)
-5. Lightweight workspace index + regex/symbol search; surface top-K relevant files.
-6. Tiered ISO/IEEE loader + viewpoint triggers; wire to plan/context assembly.
+5. Enhance semantic/symbol search; improve dependency walking and impacted-file selection.
+6. Tiered ISO/IEEE loader + viewpoint triggers; integrate with plan/context assembly.
 
 Phase C (Observability & safety)
-7. Per-run logs/metrics (tokens/time/steps), redaction, write-scope allowlist.
-8. Simple retry/backoff, error classification, and checkpoint recovery.
+7. Per-run logs/metrics, write-scope allowlist, minimal retry/backoff.
 
 These steps keep the kernel minimal and composable, while closing the critical gaps observed in
 Open SWE ([link](https://github.com/langchain-ai/open-swe)) and Claude Code ([link](https://github.com/anthropics/claude-code)).
