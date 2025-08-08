@@ -11,13 +11,16 @@ from anthropic import Anthropic
 class LLMClient:
     """Client for interacting with Claude"""
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY not found")
         
         self.client = Anthropic(api_key=self.api_key)
-        self.model = "claude-3-opus-20240229"
+        # Default to Haiku (10x cheaper than Opus)
+        # Opus: ~$15/1M input, $75/1M output
+        # Haiku: ~$0.25/1M input, $1.25/1M output
+        self.model = model or os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
     
     def generate_architecture(self, 
                             task: str,
