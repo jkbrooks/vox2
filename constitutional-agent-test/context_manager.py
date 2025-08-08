@@ -9,7 +9,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from enum import Enum
-# import tiktoken  # Would need to be installed - commented out for testing
+import tiktoken
+
+# Initialize tokenizer for token counting
+try:
+    tokenizer = tiktoken.get_encoding("cl100k_base")  # GPT-4 encoding
+except:
+    tokenizer = None  # Fallback if tiktoken fails
 
 class Priority(Enum):
     """Priority levels for context elements"""
@@ -34,9 +40,12 @@ class ContextElement:
 
 def estimate_tokens(text: str) -> int:
     """Estimate token count for a piece of text"""
-    # Simplified estimation - in production would use tiktoken
-    # Rough estimate: 1 token per 4 characters
-    return len(text) // 4
+    if tokenizer:
+        # Use tiktoken for accurate counting
+        return len(tokenizer.encode(text))
+    else:
+        # Fallback: rough estimate of 1 token per 4 characters
+        return len(text) // 4
 
 class ContextManager:
     """Manages context injection with token budget awareness"""
