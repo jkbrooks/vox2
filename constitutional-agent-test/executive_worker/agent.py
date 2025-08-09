@@ -196,7 +196,10 @@ class ExecutiveWorker:
 
     # --- Helpers ---
     def _write_run_json(self, run_log: RunLog) -> None:
-        runs_dir = os.path.join(self.workspace_root, "executive_worker", "runs")
+        # Always write runs to constitutional-agent-test/executive_worker/runs regardless of workspace_root
+        # This ensures consistent run log location for analysis
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # constitutional-agent-test dir
+        runs_dir = os.path.join(script_dir, "executive_worker", "runs")
         os.makedirs(runs_dir, exist_ok=True)
         path = os.path.join(runs_dir, f"{run_log.run_id}.json")
         with open(path, "w", encoding="utf-8") as f:
