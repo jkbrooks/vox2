@@ -98,38 +98,41 @@ class ExecutiveWorker:
         commands: List[CommandResult] = []
         commits: List[str] = []
         for step in plan:
+            # Ensure args is always a dict
+            args = step.args if isinstance(step.args, dict) else {}
+            
             if step.kind == "search":
-                pattern = step.args.get("pattern", ".*")
-                globs = step.args.get("globs", ["**/*.py", "**/*.md", "**/*.rs", "**/*.ts", "**/*.tsx"])
+                pattern = args.get("pattern", ".*")
+                globs = args.get("globs", ["**/*.py", "**/*.md", "**/*.rs", "**/*.ts", "**/*.tsx"])
                 hits = self.code.grep(pattern, globs)
                 preview = "\n".join([f"{p}:{ln}: {txt}" for p, ln, txt in hits[:10]])
                 commands.append(CommandResult(cmd=f"SEARCH {pattern}", exit_code=0, stdout=preview, stderr="", duration_ms=0))
             elif step.kind == "edit":
-                edits = step.args.get("edits", [])
+                edits = args.get("edits", [])
                 from .edit_engine import FileEdit
 
                 file_edits = [FileEdit(e["path"], e["find"], e["replace"]) for e in edits if all(k in e for k in ("path", "find", "replace"))]
                 self.edit_engine.apply_edits(file_edits)
                 self.git.add_all()
-                msg = step.args.get("message", f"chore: apply edits for {ticket.ticket_id}")
+                msg = args.get("message", f"chore: apply edits for {ticket.ticket_id}")
                 commit_out = self.git.commit(msg)
                 sha = self._extract_commit_sha(commit_out)
                 if sha:
                     commits.append(sha)
                 commands.append(CommandResult(cmd="edit_engine.apply_edits", exit_code=0, stdout=commit_out, stderr="", duration_ms=0))
             elif step.kind == "shell":
-                cmd = step.args.get("cmd", "echo noop")
+                cmd = args.get("cmd", "echo noop")
                 res = self.shell.run(cmd)
                 commands.append(res)
             elif step.kind == "git":
-                action = step.args.get("action", "push")
+                action = args.get("action", "push")
                 if action == "push":
                     out = self.git.push()
                 else:
                     out = self.git.status()
                 commands.append(CommandResult(cmd=f"git {action}", exit_code=0, stdout=out, stderr="", duration_ms=0))
             elif step.kind == "validate":
-                cmd = step.args.get("cmd", "true")
+                cmd = args.get("cmd", "true")
                 res = self.shell.run(cmd)
                 commands.append(res)
             else:
