@@ -1,6 +1,6 @@
 # Executive Worker MVP – Product Specification
 
-This spec defines a minimal, testable, execution‑centric agent (“Executive Worker”) to operate on Vox2 tickets. It prioritizes codebase understanding/navigation, reliable multi‑file edits, shell‑level execution, and strong git usage. It deliberately avoids PR flows, heavy observability, and outer-loop meta‑evolution.
+This spec defines a minimal, testable, execution‑centric agent (“Executive Worker”) to operate on tickets. It prioritizes codebase understanding/navigation, reliable multi‑file edits, shell‑level execution, and strong git usage. It deliberately avoids PR flows, heavy observability, and outer-loop meta‑evolution.
 
 References (context only):
 - Open SWE (planning + execution agent, shell-based ops): https://github.com/langchain-ai/open-swe
