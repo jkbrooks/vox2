@@ -27,3 +27,16 @@ nodes:
     files: []
   notes: initial pass
   children: []
+- id: node-path-test
+  title: node-path-test
+  deps: []
+  status: partial
+  coverage_pct: 10
+  acceptance:
+  - compiles
+  - tests pass
+  evidence:
+    commits: []
+    files: []
+  notes: initial pass
+  children: []
