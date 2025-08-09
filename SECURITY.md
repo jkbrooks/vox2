@@ -1,0 +1,1 @@
+To report security issues, please contact [email@example.com].

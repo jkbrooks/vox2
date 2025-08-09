@@ -175,4 +175,8 @@ To run the agent:
 just agent-run issue=<num>
 ```
 
-Artifacts can be found in `executive_worker/runs/`.
+Artifacts can be found in `executive_worker/runs/`.## Community & Quality
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security](SECURITY.md)
+- [Bug Report](.github/ISSUE_TEMPLATE/bug_report.md)
+- [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md)[Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)

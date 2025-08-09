@@ -1,0 +1,1 @@
+Overview of the architecture. Key directories: [link1], [link2].
