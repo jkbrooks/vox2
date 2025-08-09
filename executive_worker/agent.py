@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -102,6 +103,16 @@ class ExecutiveAgent:
             },
         }
         run_path = TaskTree.write_run_json(self.workspace_root, payload)
+
+        # Also copy the run artifact to a user-friendly location for quick access
+        try:
+            friendly_dir = Path(self.workspace_root) / "runs" / "executive_worker"
+            friendly_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(run_path, friendly_dir / run_path.name)
+        except Exception:
+            # Non-fatal: best-effort convenience copy
+            pass
+
         return RunResult(run_json_path=str(run_path), commit_sha=commit_sha)
 
 
