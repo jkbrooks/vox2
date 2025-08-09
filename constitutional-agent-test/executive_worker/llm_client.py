@@ -104,10 +104,18 @@ class LLMClient:
                     args={"cmd": f"mkdir -p {dir_path}"}
                 ))
         
-        # File creation patterns
+        # File creation patterns - be more careful about paths
         if "Create.*file:" in prompt or "create.*README" in prompt:
             file_matches = re.findall(r"[Cc]reate.*[`\"']([^`\"']+\.(?:md|rs|py|js|ts))[`\"']", prompt)
             for file_path in file_matches:
+                # Ensure parent directory exists first (but not the file itself!)
+                dir_path = os.path.dirname(file_path)
+                if dir_path and dir_path != ".":
+                    steps.append(PlanStep(
+                        description=f"create directory {dir_path}",
+                        kind="shell", 
+                        args={"cmd": f"mkdir -p {dir_path}"}
+                    ))
                 steps.append(PlanStep(
                     description=f"create file {file_path}",
                     kind="shell", 

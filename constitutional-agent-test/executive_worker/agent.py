@@ -139,7 +139,19 @@ class ExecutiveWorker:
                 edits = args.get("edits", [])
                 from .edit_engine import FileEdit
 
-                file_edits = [FileEdit(e["path"], e["find"], e["replace"]) for e in edits if all(k in e for k in ("path", "find", "replace"))]
+                file_edits = []
+                
+                # Handle the expected format: list of edits with path/find/replace
+                for e in edits:
+                    if all(k in e for k in ("path", "find", "replace")):
+                        file_edits.append(FileEdit(e["path"], e["find"], e["replace"]))
+                
+                # Handle LLM's actual format: single file with path/content
+                if not file_edits and "path" in args and "content" in args:
+                    # Create new file or append content
+                    path = args["path"]
+                    content = args["content"]
+                    file_edits = [FileEdit(path, "", content)]  # Empty find means append/create
                 
                 # Use enhanced edit engine for AST-aware operations if available
                 edit_type = args.get("edit_type", "basic")
