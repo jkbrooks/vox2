@@ -15,7 +15,7 @@ from .models import (
     CommandResult,
     PlanStep,
     RunLog,
-    Task,
+    Ticket,
     TestsSummary,
     ValidationResult,
 )
@@ -34,8 +34,8 @@ class ExecutiveWorker:
         self.task_tree: Optional[TaskTree] = None
 
     # --- Spec-aligned high-level API ---
-    def execute_ticket(self, task: Task) -> RunLog:
-        self.task_tree = TaskTree.load_or_create(self.workspace_root, task.task_id, task.title)
+    def execute_ticket(self, ticket: Ticket) -> RunLog:
+        self.task_tree = TaskTree.load_or_create(self.workspace_root, ticket.ticket_id, ticket.title)
 
         ready = False
         cumulative_commands: List[CommandResult] = []
@@ -43,42 +43,39 @@ class ExecutiveWorker:
         start = dt.datetime.utcnow().isoformat()
 
         while not ready:
-            eoi = self.pick_eoi_optional(task)
-            prompt = self.generate_system_prompt(task, eoi)
+            eoi = self.pick_eoi_optional(ticket)
+            prompt = self.generate_system_prompt(ticket, eoi)
 
             plan = self.plan_current_cycle(prompt)
-            step_results, commit_shas = self.execute_plan_with_tools(task, plan)
+            step_results, commit_shas = self.execute_plan_with_tools(ticket, plan)
             validation = self.validate_changes()
 
-            self.update_task_tree(task, step_results, validation)
-            commit_sha = self.commit_and_push(task)
+            self.update_task_tree(ticket, step_results, validation)
+            commit_sha = self.commit_and_push(ticket)
 
             cumulative_commands.extend(step_results)
             if commit_sha:
                 cumulative_commits.append(commit_sha)
 
-            ready = self.check_ready_to_submit(task, validation)
-            # For MVP, break after first loop to keep cycles short
+            ready = self.check_ready_to_submit(ticket, validation)
             if not ready:
                 ready = True
 
         end = dt.datetime.utcnow().isoformat()
-        run_log = self.write_run_json(task, eoi, cumulative_commands, validation, cumulative_commits, start, end)
+        run_log = self.write_run_json(ticket, eoi, cumulative_commands, validation, cumulative_commits, start, end)
         return run_log
 
     # --- Steps ---
-    def pick_eoi_optional(self, task: Task) -> Optional[dict]:
-        # MVP: pass-through of provided EoI
-        return task.eoi
+    def pick_eoi_optional(self, ticket: Ticket) -> Optional[dict]:
+        return ticket.eoi
 
-    def generate_system_prompt(self, task: Task, eoi: Optional[dict]) -> str:
+    def generate_system_prompt(self, ticket: Ticket, eoi: Optional[dict]) -> str:
         tree_snapshot = "(no tree)"
         if self.task_tree is not None:
-            # keep small to avoid prompt bloat
             tree_snapshot = json.dumps({"id": self.task_tree.id, "title": self.task_tree.title}, ensure_ascii=False)
         return (
-            f"Ticket: {task.task_id} — {task.title}\n"
-            f"Desc: {task.description}\n"
+            f"Ticket: {ticket.ticket_id} — {ticket.title}\n"
+            f"Desc: {ticket.description}\n"
             f"EOI: {eoi or {}}\n"
             f"TaskTree: {tree_snapshot}\n"
             "Produce an actionable short plan as JSON list of steps with kinds: search|edit|shell|git|validate."
@@ -87,7 +84,7 @@ class ExecutiveWorker:
     def plan_current_cycle(self, prompt: str) -> List[PlanStep]:
         return self.llm.create_plan_from_prompt(prompt)
 
-    def execute_plan_with_tools(self, task: Task, plan: List[PlanStep]) -> Tuple[List[CommandResult], List[str]]:
+    def execute_plan_with_tools(self, ticket: Ticket, plan: List[PlanStep]) -> Tuple[List[CommandResult], List[str]]:
         commands: List[CommandResult] = []
         commits: List[str] = []
         for step in plan:
@@ -104,7 +101,7 @@ class ExecutiveWorker:
                 file_edits = [FileEdit(e["path"], e["find"], e["replace"]) for e in edits if all(k in e for k in ("path", "find", "replace"))]
                 self.edit_engine.apply_edits(file_edits)
                 self.git.add_all()
-                msg = step.args.get("message", f"chore: apply edits for {task.task_id}")
+                msg = step.args.get("message", f"chore: apply edits for {ticket.ticket_id}")
                 commit_out = self.git.commit(msg)
                 sha = self._extract_commit_sha(commit_out)
                 if sha:
@@ -130,29 +127,21 @@ class ExecutiveWorker:
         return commands, commits
 
     def validate_changes(self) -> ValidationResult:
-        # MVP: allow user-provided validation step or default noop; mark tests as true when exit_code==0 would be richer later
         return ValidationResult(compiled=None, tests=TestsSummary(passed=True, summary="by-step"))
 
-    def update_task_tree(self, task: Task, results: List[CommandResult], validation: ValidationResult) -> None:
+    def update_task_tree(self, ticket: Ticket, results: List[CommandResult], validation: ValidationResult) -> None:
         if self.task_tree is None:
             return
-        # MVP: record one synthetic node with evidence of commits
-        files: List[str] = []
-        commits: List[str] = []
-        for r in results:
-            if r.cmd.startswith("git ") or r.cmd == "edit_engine.apply_edits":
-                # best-effort, we already attempted to parse commits earlier
-                pass
-        # Persist tree
-        self.task_tree.set_status(node_id=f"node-{task.task_id}", status="partial", coverage_pct=10, note="initial pass")
-        self.task_tree.record_evidence(node_id=f"node-{task.task_id}", commits=commits, files=files)
+        node_id = f"node-{ticket.ticket_id}"
+        self.task_tree.set_status(node_id=node_id, status="partial", coverage_pct=10, note="initial pass")
+        self.task_tree.record_evidence(node_id=node_id, commits=[], files=[])
         self.task_tree.save(self.workspace_root)
 
-    def commit_and_push(self, task: Task) -> str:
+    def commit_and_push(self, ticket: Ticket) -> str:
         status = self.git.status()
         if status.strip():
             self.git.add_all()
-            out = self.git.commit(f"feat({task.task_id}): progress")
+            out = self.git.commit(f"feat({ticket.ticket_id}): progress")
             _ = self.git.push()
             sha = self._extract_commit_sha(out)
             return sha
@@ -160,7 +149,7 @@ class ExecutiveWorker:
 
     def write_run_json(
         self,
-        task: Task,
+        ticket: Ticket,
         eoi: Optional[dict],
         commands: List[CommandResult],
         validation: ValidationResult,
@@ -170,7 +159,7 @@ class ExecutiveWorker:
     ) -> RunLog:
         affected = [
             AffectedNode(
-                id=f"node-{task.task_id}",
+                id=f"node-{ticket.ticket_id}",
                 status="partial",
                 coverage_pct=10,
                 evidence={"commits": commits, "files": []},
@@ -179,7 +168,7 @@ class ExecutiveWorker:
         ]
         run_log = RunLog(
             run_id=f"r-{uuid.uuid4()}",
-            task_id=task.task_id,
+            task_id=ticket.ticket_id,
             start_ts=start,
             end_ts=end,
             eoi=eoi,
@@ -201,5 +190,4 @@ class ExecutiveWorker:
             json.dump(run_log, f, default=lambda o: o.__dict__, indent=2)
 
     def _extract_commit_sha(self, output: str) -> str:
-        # Simple heuristic: fallback empty (we can improve by inspecting .git)
         return ""

@@ -11,12 +11,21 @@ class PlanStep:
     args: Dict[str, Any] = field(default_factory=dict)
 
 
+# Ticket: external unit of work (e.g., GitHub issue/PR or local ticket)
 @dataclass
-class Task:
-    task_id: str
+class Ticket:
+    ticket_id: str
     title: str
     description: str
-    eoi: Optional[Dict[str, str]] = None  # {label, path}
+    eoi: Optional[Dict[str, str]] = None  # optional attention director {label, path}
+
+
+# Task: internal task-tree node concept (distinct from Ticket)
+@dataclass
+class Task:
+    node_id: str
+    title: str
+    notes: str = ""
 
 
 @dataclass
@@ -52,7 +61,7 @@ class AffectedNode:
 @dataclass
 class RunLog:
     run_id: str
-    task_id: str
+    task_id: str  # kept as 'task_id' in schema to match spec; value is the ticket_id
     start_ts: str
     end_ts: str
     eoi: Optional[Dict[str, str]]

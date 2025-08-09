@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import List
 
-from .models import PlanStep, Task
+from .models import PlanStep, Ticket
 
 try:
     from openai import OpenAI  # type: ignore
@@ -12,7 +12,7 @@ except Exception:  # pragma: no cover
 
 
 SYSTEM_PROMPT = (
-    "You are the Executive Worker planner. Given a task, produce a small plan "
+    "You are the Executive Worker planner. Given a ticket, produce a small plan "
     "with steps of kinds: search | edit | shell | git | validate. Keep it short and executable."
 )
 
@@ -56,10 +56,10 @@ class LLMClient:
             )
         return steps
 
-    def create_plan(self, task: Task) -> List[PlanStep]:
+    def create_plan(self, ticket: Ticket) -> List[PlanStep]:
         prompt = (
-            f"Task ID: {task.task_id}\nTitle: {task.title}\nDescription: {task.description}\n"
-            f"EOI: {task.eoi or {}}\n"
+            f"Ticket ID: {ticket.ticket_id}\nTitle: {ticket.title}\nDescription: {ticket.description}\n"
+            f"EOI: {ticket.eoi or {}}\n"
             "Return JSON list of steps as [{\"description\":str, \"kind\":str, \"args\":{}}]."
         )
         return self._chat_json_list(SYSTEM_PROMPT, prompt)

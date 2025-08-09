@@ -11,7 +11,7 @@ This directory contains a minimal execution‑centric agent with immediate LLM i
   - `codebase_utils.py` – search/index skeleton (Aider‑parity ready)
   - `edit_engine.py` – transactional multi‑file edits (skeleton)
   - `llm_client.py` – OpenAI client (uses `OPENAI_API_KEY`)
-  - `models.py` – dataclasses for plan and run logging
+  - `models.py` – dataclasses for plan and run logging (Ticket vs Task separated)
 - `research/agentic-repos-borrowables.md` – reference notes
 - `MVP_PRODUCT_SPEC.md` – spec driving this MVP
 - `_archive/` – older versions retained for reference
@@ -25,14 +25,14 @@ This directory contains a minimal execution‑centric agent with immediate LLM i
 2. Run a quick planning+execution cycle from Python REPL:
    ```python
    from constitutional_agent_test.executive_worker.agent import ExecutiveWorker
-   from constitutional_agent_test.executive_worker.models import Task
+   from constitutional_agent_test.executive_worker.models import Ticket
 
    agent = ExecutiveWorker(workspace_root="/workspaces/vox2")
-   task = Task(task_id="ticket-local", title="Sanity check", description="Echo hello and git status")
-   log = agent.execute_task(task)
+   ticket = Ticket(ticket_id="ticket-local", title="Sanity check", description="Echo hello and git status")
+   log = agent.execute_ticket(ticket)
    print(log.run_id)
    ```
-3. Run logs will be written to `constitutional-agent-test/runs/`.
+3. Run logs will be written to `constitutional-agent-test/runs/`, and `task_tree.yaml` maintained at repo root under `constitutional-agent-test/`.
 
 ## Notes
 - Git ops are executed via shell (no dedicated git client) per current preference.
