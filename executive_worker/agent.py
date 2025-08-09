@@ -106,7 +106,7 @@ class ExecutiveAgent:
 
         # Also copy the run artifact to a user-friendly location for quick access
         try:
-            friendly_dir = Path(self.workspace_root) / "runs" / "executive_worker"
+            friendly_dir = Path(self.workspace_root) / "executive_worker" / "runs"
             friendly_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(run_path, friendly_dir / run_path.name)
         except Exception:
