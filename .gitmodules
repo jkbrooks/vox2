@@ -1,0 +1,3 @@
+[submodule "external/claude-code-source-code-deobfuscation"]
+	path = external/claude-code-source-code-deobfuscation
+	url = https://github.com/ghuntley/claude-code-source-code-deobfuscation.git
