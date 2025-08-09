@@ -202,11 +202,12 @@ class ExecutiveWorker:
         runs_dir = os.path.join(script_dir, "executive_worker", "runs")
         os.makedirs(runs_dir, exist_ok=True)
         
-        # Create timestamp-first filename for easy sorting and identification
-        # Format: YYYYMMDD-HHMMSS-{task_id}-{short_uuid}.json
-        timestamp = dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        # Create time-first filename for easy identification in short file viewers
+        # Format: HHMMSS-YYYYMMDD-{task_id}-{short_uuid}.json
+        now = dt.datetime.utcnow()
+        time_first = now.strftime("%H%M%S-%Y%m%d")
         short_uuid = run_log.run_id.split('-')[-1]  # Last part of UUID for uniqueness
-        filename = f"{timestamp}-{run_log.task_id}-{short_uuid}.json"
+        filename = f"{time_first}-{run_log.task_id}-{short_uuid}.json"
         path = os.path.join(runs_dir, filename)
         
         with open(path, "w", encoding="utf-8") as f:
