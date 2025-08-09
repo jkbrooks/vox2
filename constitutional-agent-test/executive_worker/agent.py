@@ -127,8 +127,8 @@ class ExecutiveWorker:
                 # Use enhanced semantic search if available
                 if self.use_enhanced and self.enhanced_code and args.get("semantic", False):
                     query = args.get("query", pattern)
-                    results = self.enhanced_code.semantic_search(query, limit=10)
-                    preview = "\n".join([f"{r.filepath}:{r.line_number}: {r.content[:100]}..." for r in results[:10]])
+                    results = self.enhanced_code.semantic_search(query, max_results=10)
+                    preview = "\n".join([f"{r['file_path']}:{r.get('symbol', {}).get('line_number', '?')}: {str(r.get('symbol', {}).get('name', r.get('type', 'unknown')))}" for r in results[:10]])
                     commands.append(CommandResult(cmd=f"SEMANTIC_SEARCH {query}", exit_code=0, stdout=preview, stderr="", duration_ms=0))
                 else:
                     # Fallback to basic grep
