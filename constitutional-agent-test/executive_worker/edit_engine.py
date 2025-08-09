@@ -21,17 +21,39 @@ class EditEngine:
         try:
             for e in edits:
                 target = os.path.join(self.root, e.path)
+                
+                # Handle file creation (empty original_substring means create/append)
+                if not os.path.exists(target):
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
+                    with open(target, "w", encoding="utf-8") as f:
+                        f.write(e.replacement)
+                    backups.append((target, ""))  # Empty backup for new file
+                    continue
+                
+                # Handle existing file editing
                 with open(target, "r", encoding="utf-8") as f:
                     content = f.read()
-                if e.original_substring not in content:
-                    raise RuntimeError(f"Context not found in {e.path}")
-                new_content = content.replace(e.original_substring, e.replacement, 1)
+                
                 backups.append((target, content))
+                
+                # If original_substring is empty, append content
+                if e.original_substring == "":
+                    new_content = content + e.replacement
+                else:
+                    if e.original_substring not in content:
+                        raise RuntimeError(f"Context '{e.original_substring}' not found in {e.path}")
+                    new_content = content.replace(e.original_substring, e.replacement, 1)
+                
                 with open(target, "w", encoding="utf-8") as f:
                     f.write(new_content)
+                    
         except Exception:
             # rollback
             for path, old in backups[::-1]:
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(old)
+                if old == "":  # New file, delete it
+                    if os.path.exists(path):
+                        os.remove(path)
+                else:  # Existing file, restore content
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(old)
             raise

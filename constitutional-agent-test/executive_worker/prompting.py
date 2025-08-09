@@ -114,6 +114,7 @@ def compose_system_prompt(
     parts: list[str] = []
     parts.append("You are the Executive Worker planner.")
     parts.append("Follow ISO/IEC/IEEE 42010 notions for EoI and viewpoints when focusing attention.")
+    parts.append("Parse ticket requirements carefully and create concrete, actionable steps.")
 
     parts.append("\n[TICKET]")
     parts.append(f"id: {ticket.get('id')}\ntitle: {ticket.get('title')}\ndescription: {ticket.get('description')}")
@@ -138,8 +139,17 @@ def compose_system_prompt(
     parts.append(
         "\n[INSTRUCTIONS]\n"
         "1) If CURRENT_EOI is empty or suboptimal, select a better EOI (entity of interest) for this cycle.\n"
-        "2) Produce a short, executable plan as a JSON list of steps: [{description, kind, args}] with kinds in {search, edit, shell, git, validate}.\n"
-        "3) Keep the plan compact and grounded in files and commands relevant to the chosen EOI."
+        "2) Analyze the ticket description for specific requirements (create directories, files, edit existing files, etc.)\n"
+        "3) Produce a concrete, executable plan as a JSON list of steps: [{\"description\":str, \"kind\":str, \"args\":dict}]\n"
+        "4) Available step kinds:\n"
+        "   - search: {\"pattern\": str, \"globs\": [str]} - search for files/content\n"
+        "   - edit: {\"edits\": [{\"path\": str, \"find\": str, \"replace\": str}], \"message\": str} - edit files\n"
+        "   - shell: {\"cmd\": str} - run shell commands (mkdir, touch, etc.)\n"
+        "   - git: {\"action\": \"status|push\"} - git operations\n"
+        "   - validate: {\"cmd\": str} - validation commands\n"
+        "5) For file creation: use shell commands (mkdir -p, touch) followed by edit steps to add content.\n"
+        "6) Be specific about file paths and content requirements from the ticket.\n"
+        "7) Return valid JSON array only, no explanation text."
     )
 
     return "\n".join(parts)
