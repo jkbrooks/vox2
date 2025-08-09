@@ -311,12 +311,20 @@ class ExecutiveWorker:
     # --- Helpers ---
     def _initialize_run_log(self, ticket: Ticket) -> RunLog:
         """Create initial run log with basic ticket info and start timestamp."""
-        return RunLog(
+        run_log = RunLog(
             run_id=f"r-{uuid.uuid4()}",
             task_id=ticket.ticket_id,
             start_ts=dt.datetime.utcnow().isoformat(),
             status="in_progress"
         )
+        
+        # Generate consistent filename for this run (store in instance for reuse)
+        now = dt.datetime.utcnow()
+        time_first = now.strftime("%H%M%S-%Y%m%d")
+        short_uuid = run_log.run_id.split('-')[-1]
+        self._current_run_filename = f"{time_first}-{run_log.task_id}-{short_uuid}.json"
+        
+        return run_log
 
     def _write_partial_run_log(self, run_log: RunLog) -> None:
         """Write current run log state to disk immediately (crash-safe)."""
@@ -330,13 +338,8 @@ class ExecutiveWorker:
             runs_dir = os.path.join(script_dir, "executive_worker", "runs")
         os.makedirs(runs_dir, exist_ok=True)
         
-        # Create time-first filename for easy identification in short file viewers
-        # Format: HHMMSS-YYYYMMDD-{task_id}-{short_uuid}.json
-        now = dt.datetime.utcnow()
-        time_first = now.strftime("%H%M%S-%Y%m%d")
-        short_uuid = run_log.run_id.split('-')[-1]  # Last part of UUID for uniqueness
-        filename = f"{time_first}-{run_log.task_id}-{short_uuid}.json"
-        path = os.path.join(runs_dir, filename)
+        # Use consistent filename generated at run start (reuse same file for all incremental writes)
+        path = os.path.join(runs_dir, self._current_run_filename)
         
         with open(path, "w", encoding="utf-8") as f:
             json.dump(run_log, f, default=lambda o: o.__dict__, indent=2)
