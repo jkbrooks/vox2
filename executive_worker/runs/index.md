@@ -3,3 +3,8 @@
 | ticket-5 | false | 1. **Review Ticket Requirements**: Read the ticket summary and acceptance criteria to ensure a clear |
 | ticket-5 | true | [LLM plan generation failed: OPENAI_API_KEY is not set; provide api_key to OpenAIChatLLM or set the  |
 | ticket-6 | true | [LLM plan generation failed: OPENAI_API_KEY is not set; provide api_key to OpenAIChatLLM or set the  |
+| ticket-6 | true | 1. **Review Ticket Requirements**: Read the ticket details to understand the expectations for the LL |
+| ticket-5 | false | 1. **Review Ticket Requirements**: Read the ticket summary and acceptance criteria to ensure a clear |
+| ticket-5 | true | [LLM plan generation failed: OPENAI_API_KEY is not set; provide api_key to OpenAIChatLLM or set the  |
+| ticket-6 | true | [LLM plan generation failed: OPENAI_API_KEY is not set; provide api_key to OpenAIChatLLM or set the  |
+| ticket-6 | true | 1. **Review Ticket Requirements**: Read the ticket details to understand the expectations for the LL |
