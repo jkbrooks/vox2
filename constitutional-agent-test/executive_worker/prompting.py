@@ -4,10 +4,15 @@ import os
 from typing import Optional, Dict
 
 
-ISO_PATH = os.path.join("scrap", "ISO-IEEE-42010-Architecture-Description.md")
-CONSTITUTIONAL_PROMPT_PATH = os.path.join(
-    "constitutional-agent-test", "_archive", "prompts", "constitutional_system_prompt.md"
-)
+# Paths are resolved relative to the workspace root passed in
+# ISO doc typically lives one directory up at repo root under scrap/
+ISO_REL_PATHS = [
+    os.path.join("..", "scrap", "ISO-IEEE-42010-Architecture-Description.md"),
+    os.path.join("scrap", "ISO-IEEE-42010-Architecture-Description.md"),
+]
+CONSTITUTIONAL_PROMPT_REL_PATHS = [
+    os.path.join("_archive", "prompts", "constitutional_system_prompt.md"),
+]
 
 
 def _read_text(path: str, max_chars: Optional[int] = None) -> str:
@@ -27,8 +32,12 @@ def load_iso_42010_eoi_excerpt(workspace_root: str) -> str:
     We search for the "3.12 entity of interest" heading and return a short excerpt
     to prime the LLM on the formal definition, avoiding huge prompts.
     """
-    path = os.path.join(workspace_root, ISO_PATH)
-    text = _read_text(path, max_chars=100_000)
+    text = ""
+    for rel in ISO_REL_PATHS:
+        path = os.path.join(workspace_root, rel)
+        text = _read_text(path, max_chars=100_000)
+        if text:
+            break
     if not text:
         return ""
     lower = text.lower()
@@ -53,8 +62,12 @@ def load_iso_42010_eoi_excerpt(workspace_root: str) -> str:
 
 def load_constitutional_prompt_excerpt(workspace_root: str) -> str:
     """Load curated excerpt from the prior constitutional prompt for expectations/context."""
-    path = os.path.join(workspace_root, CONSTITUTIONAL_PROMPT_PATH)
-    text = _read_text(path, max_chars=20_000)
+    text = ""
+    for rel in CONSTITUTIONAL_PROMPT_REL_PATHS:
+        path = os.path.join(workspace_root, rel)
+        text = _read_text(path, max_chars=20_000)
+        if text:
+            break
     if not text:
         return ""
     # Keep a compact subset: identity/context headers, EoI section, stakeholder+concern, viewpoints.

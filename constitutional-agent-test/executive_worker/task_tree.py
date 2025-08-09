@@ -31,7 +31,7 @@ class TaskTree:
 
     @staticmethod
     def path_for(workspace_root: str) -> str:
-        return os.path.join(workspace_root, "constitutional-agent-test", "task_tree.yaml")
+        return os.path.join(workspace_root, "task_tree.yaml")
 
     @classmethod
     def load_or_create(cls, workspace_root: str, task_id: str, title: str) -> "TaskTree":
