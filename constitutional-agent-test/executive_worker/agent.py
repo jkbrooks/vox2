@@ -201,7 +201,14 @@ class ExecutiveWorker:
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # constitutional-agent-test dir
         runs_dir = os.path.join(script_dir, "executive_worker", "runs")
         os.makedirs(runs_dir, exist_ok=True)
-        path = os.path.join(runs_dir, f"{run_log.run_id}.json")
+        
+        # Create timestamp-first filename for easy sorting and identification
+        # Format: YYYYMMDD-HHMMSS-{task_id}-{short_uuid}.json
+        timestamp = dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        short_uuid = run_log.run_id.split('-')[-1]  # Last part of UUID for uniqueness
+        filename = f"{timestamp}-{run_log.task_id}-{short_uuid}.json"
+        path = os.path.join(runs_dir, filename)
+        
         with open(path, "w", encoding="utf-8") as f:
             json.dump(run_log, f, default=lambda o: o.__dict__, indent=2)
 
