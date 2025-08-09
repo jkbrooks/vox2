@@ -166,3 +166,13 @@ This repository includes a minimal, execution‑centric agent and a small harnes
    - `just runs-index` → regenerate the runs index
 
 
+
+## Executive Worker
+
+To run the agent:
+
+```bash
+just agent-run issue=<num>
+```
+
+Artifacts can be found in `executive_worker/runs/`.
