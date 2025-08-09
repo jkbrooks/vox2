@@ -27,17 +27,12 @@ class LLMClient:
         self.client = OpenAI(api_key=api_key)
         self.model = model
 
-    def create_plan(self, task: Task) -> List[PlanStep]:
-        prompt = (
-            f"Task ID: {task.task_id}\nTitle: {task.title}\nDescription: {task.description}\n"
-            f"EOI: {task.eoi or {}}\n"
-            "Return JSON list of steps as [{\"description\":str, \"kind\":str, \"args\":{}}]."
-        )
+    def _chat_json_list(self, system_prompt: str, user_prompt: str) -> List[PlanStep]:
         resp = self.client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
         )
@@ -60,3 +55,14 @@ class LLMClient:
                 )
             )
         return steps
+
+    def create_plan(self, task: Task) -> List[PlanStep]:
+        prompt = (
+            f"Task ID: {task.task_id}\nTitle: {task.title}\nDescription: {task.description}\n"
+            f"EOI: {task.eoi or {}}\n"
+            "Return JSON list of steps as [{\"description\":str, \"kind\":str, \"args\":{}}]."
+        )
+        return self._chat_json_list(SYSTEM_PROMPT, prompt)
+
+    def create_plan_from_prompt(self, prompt: str) -> List[PlanStep]:
+        return self._chat_json_list(SYSTEM_PROMPT, prompt)
