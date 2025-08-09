@@ -59,7 +59,7 @@ class EnhancedCodebaseUtils:
                         file_path TEXT PRIMARY KEY,
                         mtime REAL,
                         symbols TEXT,
-                        references TEXT
+                        symbol_references TEXT
                     )
                 """)
                 conn.execute("""
@@ -514,7 +514,7 @@ class EnhancedCodebaseUtils:
         print(f"Enhanced index complete: {processed_files} files, {total_symbols} symbols")
         return index_summary
 
-    def workspace_summary(self) -> str:
+    def workspace_summary(self, max_files: int = 15) -> str:
         """Generate enhanced workspace summary with symbol information."""
         if not self.file_cache:
             self.build_codebase_index()
@@ -548,7 +548,7 @@ class EnhancedCodebaseUtils:
         
         return summary
 
-    def candidate_eoi_paths(self) -> List[str]:
+    def candidate_eoi_paths(self, limit: int = 20) -> List[str]:
         """Get enhanced candidate Entity of Interest paths based on symbol importance."""
         # Build index if not already done
         if not self.file_cache:
@@ -578,7 +578,7 @@ class EnhancedCodebaseUtils:
         top_symbol_files = sorted(symbol_counts.items(), key=lambda x: x[1], reverse=True)[:10]
         candidates.extend([f[0] for f in top_symbol_files])
         
-        return list(set(candidates))
+        return list(set(candidates))[:limit]
 
     def build_dependency_graph(self) -> Dict:
         """Build a dependency graph using NetworkX (if available)."""

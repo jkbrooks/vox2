@@ -12,6 +12,7 @@ ISO_REL_PATHS = [
 ]
 CONSTITUTIONAL_PROMPT_REL_PATHS = [
     os.path.join("_archive", "prompts", "constitutional_system_prompt.md"),
+    os.path.join("constitutional-agent-test", "_archive", "prompts", "constitutional_system_prompt.md"),
 ]
 
 
@@ -112,9 +113,11 @@ def compose_system_prompt(
     workspace_summary: short stats and notable hints
     """
     parts: list[str] = []
-    parts.append("You are the Executive Worker planner.")
+    parts.append("You are the Executive Worker planner with enhanced codebase understanding capabilities.")
     parts.append("Follow ISO/IEC/IEEE 42010 notions for EoI and viewpoints when focusing attention.")
     parts.append("Parse ticket requirements carefully and create concrete, actionable steps.")
+    parts.append("You have access to semantic search, AST-aware editing, and intelligent error recovery.")
+    parts.append("Use these enhanced capabilities to create more precise and effective plans.")
 
     parts.append("\n[TICKET]")
     parts.append(f"id: {ticket.get('id')}\ntitle: {ticket.get('title')}\ndescription: {ticket.get('description')}")
@@ -142,14 +145,20 @@ def compose_system_prompt(
         "2) Analyze the ticket description for specific requirements (create directories, files, edit existing files, etc.)\n"
         "3) Produce a concrete, executable plan as a JSON list of steps: [{\"description\":str, \"kind\":str, \"args\":dict}]\n"
         "4) Available step kinds:\n"
-        "   - search: {\"pattern\": str, \"globs\": [str]} - search for files/content\n"
-        "   - edit: {\"edits\": [{\"path\": str, \"find\": str, \"replace\": str}], \"message\": str} - edit files\n"
-        "   - shell: {\"cmd\": str} - run shell commands (mkdir, touch, etc.)\n"
+        "   - search: {\"pattern\": str, \"globs\": [str], \"semantic\": bool, \"query\": str} - search for files/content\n"
+        "     * Use semantic=true with query for meaning-based search (\"authentication logic\", \"error handling\")\n"
+        "     * Use semantic=false with pattern for regex-based search\n"
+        "   - edit: {\"edits\": [{\"path\": str, \"find\": str, \"replace\": str}], \"message\": str, \"edit_type\": str} - edit files\n"
+        "     * edit_type options: \"basic\" (default), \"ast\" (syntax-aware), \"rename\" (symbol renaming), \"refactor\"\n"
+        "     * For rename: include \"old_name\": str, \"new_name\": str, \"scope\": \"global|local\"\n"
+        "   - shell: {\"cmd\": str} - run shell commands (mkdir, touch, etc.) with auto-recovery on errors\n"
         "   - git: {\"action\": \"status|push\"} - git operations\n"
-        "   - validate: {\"cmd\": str} - validation commands\n"
+        "   - validate: {\"cmd\": str} - validation commands with intelligent error analysis\n"
         "5) For file creation: use shell commands (mkdir -p, touch) followed by edit steps to add content.\n"
         "6) Be specific about file paths and content requirements from the ticket.\n"
-        "7) Return valid JSON array only, no explanation text."
+        "7) Leverage semantic search for understanding codebase structure and dependencies.\n"
+        "8) Use AST-aware editing for precise code transformations when modifying existing code.\n"
+        "9) Return valid JSON array only, no explanation text."
     )
 
     return "\n".join(parts)
