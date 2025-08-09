@@ -11,6 +11,14 @@ class PlanStep:
     args: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class FileEdit:
+    """Represents a file edit operation."""
+    path: str
+    original_substring: str
+    replacement: str
+
+
 # Ticket: external unit of work (e.g., GitHub issue/PR or local ticket)
 @dataclass
 class Ticket:
