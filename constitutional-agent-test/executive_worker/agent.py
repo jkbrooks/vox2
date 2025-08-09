@@ -21,6 +21,7 @@ from .models import (
 )
 from .shell_runner import ShellRunner
 from .task_tree import TaskTree
+from .prompting import compose_system_prompt, load_iso_42010_eoi_excerpt, load_constitutional_prompt_excerpt
 
 
 class ExecutiveWorker:
@@ -67,18 +68,27 @@ class ExecutiveWorker:
 
     # --- Steps ---
     def pick_eoi_optional(self, ticket: Ticket) -> Optional[dict]:
-        return ticket.eoi
+        # If provided, use it; otherwise, ask LLM to pick from candidates using ISO/constitutional guidance
+        if ticket.eoi:
+            return ticket.eoi
+        candidates = self.code.candidate_eoi_paths(limit=25)
+        iso_excerpt = load_iso_42010_eoi_excerpt(self.workspace_root)
+        guidance = "Prefer files/modules most relevant to the ticket description; choose focused EoI, not entire repo."
+        choice = self.llm.choose_eoi(ticket=ticket, candidates=candidates, iso_eoi_excerpt=iso_excerpt, guidance=guidance)
+        return choice
 
     def generate_system_prompt(self, ticket: Ticket, eoi: Optional[dict]) -> str:
-        tree_snapshot = "(no tree)"
-        if self.task_tree is not None:
-            tree_snapshot = json.dumps({"id": self.task_tree.id, "title": self.task_tree.title}, ensure_ascii=False)
-        return (
-            f"Ticket: {ticket.ticket_id} — {ticket.title}\n"
-            f"Desc: {ticket.description}\n"
-            f"EOI: {eoi or {}}\n"
-            f"TaskTree: {tree_snapshot}\n"
-            "Produce an actionable short plan as JSON list of steps with kinds: search|edit|shell|git|validate."
+        tree_snapshot = {"id": self.task_tree.id, "title": self.task_tree.title} if self.task_tree else {"id": "?", "title": "?"}
+        iso_excerpt = load_iso_42010_eoi_excerpt(self.workspace_root)
+        constitutional_excerpt = load_constitutional_prompt_excerpt(self.workspace_root)
+        workspace_summary = self.code.workspace_summary(max_files=12)
+        return compose_system_prompt(
+            ticket={"id": ticket.ticket_id, "title": ticket.title, "description": ticket.description},
+            eoi=eoi,
+            task_tree_snapshot=tree_snapshot,
+            workspace_summary=workspace_summary,
+            iso_eoi_excerpt=iso_excerpt,
+            constitutional_excerpt=constitutional_excerpt,
         )
 
     def plan_current_cycle(self, prompt: str) -> List[PlanStep]:

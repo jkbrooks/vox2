@@ -29,6 +29,54 @@ class CodebaseUtilities:
                 continue
         return hits
 
+    def workspace_summary(self, max_files: int = 10) -> str:
+        """Return a brief summary: notable directories and a sample of key files."""
+        roots = [
+            "constitutional-agent-test",
+            "src",
+            "server",
+            "client",
+            "apps",
+            "packages",
+        ]
+        existing = [r for r in roots if os.path.isdir(os.path.join(self.root, r))]
+        sample_files: List[str] = []
+        for g in ["**/*.py", "**/*.md", "**/*.ts", "**/*.rs"]:
+            for p in Path(self.root).rglob(g):
+                rel = os.path.relpath(str(p), self.root)
+                if len(sample_files) < max_files:
+                    sample_files.append(rel)
+                else:
+                    break
+            if len(sample_files) >= max_files:
+                break
+        return (
+            f"dirs: {existing}\n"
+            f"sample_files: {sample_files[:max_files]}"
+        )
+
+    def candidate_eoi_paths(self, limit: int = 20) -> List[str]:
+        """Best-effort list of interesting file paths/classes as EoI candidates.
+        For now: top-level README/specs/entrypoints and Python modules under constitutional-agent-test.
+        """
+        candidates: List[str] = []
+        globs = [
+            "README.md",
+            "MVP_PRODUCT_SPEC.md",
+            "constitutional-agent-test/**/*.md",
+            "constitutional-agent-test/executive_worker/**/*.py",
+        ]
+        seen = set()
+        for g in globs:
+            for p in Path(self.root).rglob(g):
+                rel = os.path.relpath(str(p), self.root)
+                if rel not in seen:
+                    candidates.append(rel)
+                    seen.add(rel)
+                if len(candidates) >= limit:
+                    return candidates
+        return candidates
+
     # Placeholders for future Aider-parity components:
     # - workspace index (language map, symbol table, imports)
     # - impacted-file selection via dependency walk
