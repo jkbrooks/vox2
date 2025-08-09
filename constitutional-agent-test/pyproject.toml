@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "constitutional_agent_test"
+version = "0.0.1"
+dependencies = [
+  "pyyaml>=6.0",
+  "openai>=1.0.0",
+]
+
+[tool.setuptools]
+py-modules = []
+packages = ["executive_worker"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", ".."]
+addopts = "-q"
+testpaths = ["tests"]
+norecursedirs = ["_archive", ".venv", "venv", "node_modules"]

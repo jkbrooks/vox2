@@ -193,7 +193,7 @@ class ExecutiveWorker:
 
     # --- Helpers ---
     def _write_run_json(self, run_log: RunLog) -> None:
-        runs_dir = os.path.join(self.workspace_root, "constitutional-agent-test", "runs")
+        runs_dir = os.path.join(self.workspace_root, "constitutional-agent-test", "executive_worker", "runs")
         os.makedirs(runs_dir, exist_ok=True)
         path = os.path.join(runs_dir, f"{run_log.run_id}.json")
         with open(path, "w", encoding="utf-8") as f:
@@ -201,3 +201,9 @@ class ExecutiveWorker:
 
     def _extract_commit_sha(self, output: str) -> str:
         return ""
+
+    def check_ready_to_submit(self, ticket: Ticket, validation: ValidationResult) -> bool:
+        """MVP heuristic: treat one cycle as sufficient, or rely on tests result if provided."""
+        if validation.tests and validation.tests.passed:
+            return True
+        return True

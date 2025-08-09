@@ -1,0 +1,16 @@
+id: issue-11
+title: 'Smoke test: update README Quick start header'
+nodes:
+- id: node-issue-11
+  title: node-issue-11
+  deps: []
+  status: partial
+  coverage_pct: 10
+  acceptance:
+  - compiles
+  - tests pass
+  evidence:
+    commits: []
+    files: []
+  notes: initial pass
+  children: []
