@@ -1,0 +1,54 @@
+{
+  "task_id": "ticket-7",
+  "title": "Dev harness: Justfile + agent_run.sh + README updates",
+  "eoi": null,
+  "llm_plan": "Implement a developer harness with a Justfile, a shell script, and updates to README.md to facilitate agent runs and documentation.",
+  "actions": [
+    {
+      "type": "create_file",
+      "path": "/workspaces/vox2/Justfile",
+      "ok": true
+    },
+    {
+      "type": "create_file",
+      "path": "/workspaces/vox2/scripts/agent_run.sh",
+      "ok": true
+    },
+    {
+      "type": "append_file",
+      "path": "/workspaces/vox2/README.md",
+      "ok": true
+    },
+    {
+      "type": "run_shell",
+      "command": "chmod +x scripts/agent_run.sh",
+      "ok": true,
+      "exit_code": 0
+    },
+    {
+      "type": "run_shell",
+      "command": "just runs-index",
+      "ok": false,
+      "exit_code": 127
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "cargo check",
+      "cwd": "/workspaces/vox2",
+      "exit_code": 0,
+      "duration_ms": 901,
+      "top_stderr": [
+        "   Compiling voxelize v0.8.99 (/workspaces/vox2)",
+        "warning: unused import: `rayon::ThreadPool`",
+        "  --> server/server/mod.rs:14:5",
+        "   |",
+        "14 | use rayon::ThreadPool;"
+      ]
+    }
+  ],
+  "commit": "9a96a23cce678e9cdf3232606ebcd012cc92ce58",
+  "validation": {
+    "compiled": true
+  }
+}
