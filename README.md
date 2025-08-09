@@ -139,3 +139,30 @@ Paste the printed ssh command into Cursor’s **Remote via SSH** dialog. More in
 
 ---
 
+## Executive Worker (MVP) – Developer Harness
+
+This repository includes a minimal, execution‑centric agent and a small harness to run it end‑to‑end and collect artifacts.
+
+### Quickstart
+
+1. Ensure prerequisites:
+   - Rust (cargo) installed and in PATH
+   - Python deps: `pip install -r requirements.txt`
+   - OpenAI key if using LLM planning: `export OPENAI_API_KEY=...`
+
+2. One‑command run (with `just`):
+   - `just agent-run issue=<num>`
+
+   Or using the script directly:
+   - `./scripts/agent_run.sh --issue <num>`
+
+3. Artifacts
+   - Runs are mirrored to `executive_worker/runs/`
+   - Summary table: `executive_worker/runs/index.md`
+
+4. Other recipes
+   - `just build` → cargo check
+   - `just test` → pytest
+   - `just runs-index` → regenerate the runs index
+
+

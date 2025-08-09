@@ -11,6 +11,7 @@ from .shell_runner import ShellRunner
 from .task_tree import TaskNode, TaskTree
 from .ticket import Ticket
 from .llm_client import LLMInterface
+from .runs_indexer import regenerate_runs_index
 
 
 @dataclass
@@ -109,8 +110,10 @@ class ExecutiveAgent:
             friendly_dir = Path(self.workspace_root) / "executive_worker" / "runs"
             friendly_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy2(run_path, friendly_dir / run_path.name)
+            # Regenerate the runs index (best-effort)
+            regenerate_runs_index(self.workspace_root)
         except Exception:
-            # Non-fatal: best-effort convenience copy
+            # Non-fatal: best-effort convenience copy and index update
             pass
 
         return RunResult(run_json_path=str(run_path), commit_sha=commit_sha)
