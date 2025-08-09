@@ -15,6 +15,7 @@ from .git_client import GitClient
 from .task_tree import TaskTree
 from .ticket import Ticket
 from .agent import ExecutiveAgent
+from .llm_client import LLMInterface, OpenAIChatLLM
 
 __all__ = [
     "ShellRunner",
@@ -23,6 +24,8 @@ __all__ = [
     "TaskTree",
     "Ticket",
     "ExecutiveAgent",
+    "LLMInterface",
+    "OpenAIChatLLM",
 ]
 
 __version__ = "0.1.0"

@@ -9,6 +9,7 @@ from .git_client import GitClient
 from .shell_runner import ShellRunner
 from .task_tree import TaskNode, TaskTree
 from .ticket import Ticket
+from .llm_client import LLMInterface
 
 
 @dataclass
@@ -24,13 +25,22 @@ class ExecutiveAgent:
     runs validation commands, and writes the artifacts defined by the spec.
     """
 
-    def __init__(self, workspace_root: str):
+    def __init__(self, workspace_root: str, llm: Optional[LLMInterface] = None):
         self.workspace_root = str(Path(workspace_root).resolve())
         self.shell = ShellRunner(cwd=self.workspace_root)
         self.git = GitClient(self.workspace_root)
+        self.llm = llm
 
     def execute_ticket(self, ticket: Ticket, eoi: Optional[str] = None) -> RunResult:
         tree = TaskTree.load_or_create(self.workspace_root, f"ticket-{ticket.id}", ticket.title)
+
+        # Optional: generate a small plan using LLM (no code execution yet)
+        llm_plan: Optional[str] = None
+        if self.llm is not None:
+            try:
+                llm_plan = self.llm.generate_plan(ticket=ticket, repo_context=None)
+            except Exception as exc:
+                llm_plan = f"[LLM plan generation failed: {exc}]"
 
         commands = []
         cargo_toml = Path(self.workspace_root) / "Cargo.toml"
@@ -75,6 +85,7 @@ class ExecutiveAgent:
             "task_id": f"ticket-{ticket.id}",
             "title": ticket.title,
             "eoi": eoi,
+            "llm_plan": llm_plan,
             "commands": [
                 {
                     "cmd": c.command,
