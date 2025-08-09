@@ -53,3 +53,16 @@ nodes:
     files: []
   notes: initial pass
   children: []
+- id: node-time-first-test
+  title: node-time-first-test
+  deps: []
+  status: partial
+  coverage_pct: 10
+  acceptance:
+  - compiles
+  - tests pass
+  evidence:
+    commits: []
+    files: []
+  notes: initial pass
+  children: []
