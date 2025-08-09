@@ -1,3 +1,16 @@
 id: ticket-68
 title: Implement Minimal Constitutional Agent for System Prompt Testing
-nodes: []
+nodes:
+- id: n-validate
+  title: Project compiles
+  deps: []
+  status: partial
+  coverage_pct: 50
+  acceptance:
+  - compiles
+  - docs build
+  evidence:
+    commits: []
+    files: []
+  notes: One or more checks failed
+  children: []

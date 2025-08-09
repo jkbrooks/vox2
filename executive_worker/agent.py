@@ -48,7 +48,7 @@ class ExecutiveAgent:
             result = self.shell.run("cargo check")
             commands.append(result)
         docs_pkg = Path(self.workspace_root) / "docs" / "package.json"
-        if docs_pkg.exists():
+        if docs_pkg.exists() and os.environ.get("EXEC_SKIP_DOCS_BUILD") != "1":
             use_pnpm = os.system("command -v pnpm >/dev/null 2>&1") == 0
             install_cmd = (
                 "pnpm install --ignore-scripts --frozen-lockfile=false"
