@@ -4,13 +4,13 @@ nodes:
 - id: n-validate
   title: Project compiles
   deps: []
-  status: partial
-  coverage_pct: 50
+  status: done
+  coverage_pct: 100
   acceptance:
   - compiles
   - docs build
   evidence:
     commits: []
     files: []
-  notes: One or more checks failed
+  notes: Build checks passed
   children: []
