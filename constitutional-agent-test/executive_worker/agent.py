@@ -51,32 +51,51 @@ class ExecutiveWorker:
     def execute_ticket(self, ticket: Ticket) -> RunLog:
         self.task_tree = TaskTree.load_or_create(self.workspace_root, ticket.ticket_id, ticket.title)
 
-        ready = False
-        cumulative_commands: List[CommandResult] = []
-        cumulative_commits: List[str] = []
-        start = dt.datetime.utcnow().isoformat()
+        # Initialize run log immediately for crash-safe logging
+        run_log = self._initialize_run_log(ticket)
+        self._write_partial_run_log(run_log)  # Write initial state
 
+        ready = False
         while not ready:
             eoi = self.pick_eoi_optional(ticket)
+            run_log.eoi = eoi
+            self._write_partial_run_log(run_log)  # Update with EOI
+
             prompt = self.generate_system_prompt(ticket, eoi)
 
             plan = self.plan_current_cycle(prompt)
-            step_results, commit_shas = self.execute_plan_with_tools(ticket, plan)
+            run_log.plan_steps = len(plan)
+            self._write_partial_run_log(run_log)  # Update with plan info
+
+            step_results = self._execute_plan_with_incremental_logging(ticket, plan, run_log)
             validation = self.validate_changes()
+            run_log.validation = validation
+            self._write_partial_run_log(run_log)  # Update with validation
 
             self.update_task_tree(ticket, step_results, validation)
             commit_sha = self.commit_and_push(ticket)
-
-            cumulative_commands.extend(step_results)
             if commit_sha:
-                cumulative_commits.append(commit_sha)
+                run_log.commits.append(commit_sha)
+                self._write_partial_run_log(run_log)  # Update with commit
 
             ready = self.check_ready_to_submit(ticket, validation)
             if not ready:
                 ready = True
 
-        end = dt.datetime.utcnow().isoformat()
-        run_log = self.write_run_json(ticket, eoi, cumulative_commands, validation, cumulative_commits, start, end)
+        # Final completion
+        run_log.end_ts = dt.datetime.utcnow().isoformat()
+        run_log.status = "completed"
+        run_log.affected_nodes = [
+            AffectedNode(
+                id=f"node-{ticket.ticket_id}",
+                status="partial",
+                coverage_pct=10,
+                evidence={"commits": run_log.commits, "files": []},
+                note="initial pass",
+            )
+        ]
+        run_log.reflections = [{"type": "decision", "message": "MVP cycle executed"}]
+        self._write_partial_run_log(run_log)  # Final complete log
         return run_log
 
     # --- Steps ---
@@ -290,6 +309,187 @@ class ExecutiveWorker:
         return run_log
 
     # --- Helpers ---
+    def _initialize_run_log(self, ticket: Ticket) -> RunLog:
+        """Create initial run log with basic ticket info and start timestamp."""
+        return RunLog(
+            run_id=f"r-{uuid.uuid4()}",
+            task_id=ticket.ticket_id,
+            start_ts=dt.datetime.utcnow().isoformat(),
+            status="in_progress"
+        )
+
+    def _write_partial_run_log(self, run_log: RunLog) -> None:
+        """Write current run log state to disk immediately (crash-safe)."""
+        # For tests, write to workspace_root structure; for production, use script directory
+        if "pytest" in sys.modules or "/tmp/pytest" in self.workspace_root:
+            # Test mode: write to workspace_root/constitutional-agent-test/executive_worker/runs
+            runs_dir = os.path.join(self.workspace_root, "constitutional-agent-test", "executive_worker", "runs")
+        else:
+            # Production mode: write to script directory
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # constitutional-agent-test dir
+            runs_dir = os.path.join(script_dir, "executive_worker", "runs")
+        os.makedirs(runs_dir, exist_ok=True)
+        
+        # Create time-first filename for easy identification in short file viewers
+        # Format: HHMMSS-YYYYMMDD-{task_id}-{short_uuid}.json
+        now = dt.datetime.utcnow()
+        time_first = now.strftime("%H%M%S-%Y%m%d")
+        short_uuid = run_log.run_id.split('-')[-1]  # Last part of UUID for uniqueness
+        filename = f"{time_first}-{run_log.task_id}-{short_uuid}.json"
+        path = os.path.join(runs_dir, filename)
+        
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(run_log, f, default=lambda o: o.__dict__, indent=2)
+
+    def _execute_plan_with_incremental_logging(self, ticket: Ticket, plan: List[PlanStep], run_log: RunLog) -> List[CommandResult]:
+        """Execute plan with incremental logging after each command."""
+        commands: List[CommandResult] = []
+        for i, step in enumerate(plan):
+            try:
+                # Ensure args is always a dict
+                args = step.args if isinstance(step.args, dict) else {}
+                
+                if step.kind == "search":
+                    pattern = args.get("pattern", ".*")
+                    globs = args.get("globs", ["**/*.py", "**/*.md", "**/*.rs", "**/*.ts", "**/*.tsx"])
+                    
+                    # Use enhanced semantic search if available
+                    if self.use_enhanced and self.enhanced_code and args.get("semantic", False):
+                        query = args.get("query", pattern)
+                        results = self.enhanced_code.semantic_search(query, max_results=10)
+                        preview = "\\n".join([f"{r['file_path']}:{getattr(r.get('symbol'), 'line_number', '?')}: {getattr(r.get('symbol'), 'name', r.get('type', 'unknown'))}" for r in results[:10]])
+                        commands.append(CommandResult(cmd=f"SEMANTIC_SEARCH {query}", exit_code=0, stdout=preview, stderr="", duration_ms=0))
+                    else:
+                        # Fallback to basic grep
+                        hits = self.code.grep(pattern, globs)
+                        preview = "\\n".join([f"{p}:{ln}: {txt}" for p, ln, txt in hits[:10]])
+                        commands.append(CommandResult(cmd=f"SEARCH {pattern}", exit_code=0, stdout=preview, stderr="", duration_ms=0))
+                        
+                elif step.kind == "edit":
+                    edits = args.get("edits", [])
+                    from .edit_engine import FileEdit
+
+                    file_edits = []
+                    
+                    # Handle the expected format: list of edits with path/find/replace
+                    for e in edits:
+                        if all(k in e for k in ("path", "find", "replace")):
+                            file_edits.append(FileEdit(e["path"], e["find"], e["replace"]))
+                    
+                    # Handle LLM's actual format: single file with path/content
+                    if not file_edits and "path" in args and "content" in args:
+                        # Create new file or append content
+                        path = args["path"]
+                        content = args["content"]
+                        file_edits = [FileEdit(path, "", content)]  # Empty find means append/create
+                    
+                    # Use enhanced edit engine for AST-aware operations if available
+                    edit_type = args.get("edit_type", "basic")
+                    if self.use_enhanced and self.enhanced_edit_engine and edit_type in ["ast", "rename", "refactor"]:
+                        try:
+                            if edit_type == "rename" and "old_name" in args and "new_name" in args:
+                                # Symbol renaming across codebase
+                                affected_files = self.enhanced_edit_engine.rename_symbol(
+                                    args["old_name"], args["new_name"], args.get("scope", "global")
+                                )
+                                commands.append(CommandResult(cmd=f"RENAME_SYMBOL {args['old_name']} -> {args['new_name']}", 
+                                                            exit_code=0, stdout=f"Renamed in {len(affected_files)} files", stderr="", duration_ms=0))
+                            else:
+                                # Enhanced AST-aware editing
+                                self.enhanced_edit_engine.apply_edits(file_edits)
+                                commands.append(CommandResult(cmd="enhanced_edit_engine.apply_edits", exit_code=0, stdout="AST-aware edits applied", stderr="", duration_ms=0))
+                        except Exception as e:
+                            # Fallback to basic editing on error
+                            self.edit_engine.apply_edits(file_edits)
+                            commands.append(CommandResult(cmd="edit_engine.apply_edits (fallback)", exit_code=0, stdout=f"Fallback edit: {str(e)}", stderr="", duration_ms=0))
+                    else:
+                        # Basic editing
+                        self.edit_engine.apply_edits(file_edits)
+                        commands.append(CommandResult(cmd="edit_engine.apply_edits", exit_code=0, stdout="Basic edits applied", stderr="", duration_ms=0))
+                    
+                    self.git.add_all()
+                    msg = args.get("message", f"chore: apply edits for {ticket.ticket_id}")
+                    commit_out = self.git.commit(msg)
+                    sha = self._extract_commit_sha(commit_out)
+                    if sha:
+                        run_log.commits.append(sha)
+                        
+                elif step.kind == "shell":
+                    cmd = args.get("cmd", "echo noop")
+                    res = self.shell.run(cmd)
+                    
+                    # Use intelligent error recovery if command failed and enhanced mode is enabled
+                    if res.exit_code != 0 and self.use_enhanced and self.error_handler:
+                        try:
+                            error_analysis = self.error_handler.analyze_error(res.stderr or res.stdout, cmd)
+                            if error_analysis.confidence > 0.7 and error_analysis.suggestions:
+                                # Try the first high-confidence suggestion
+                                suggested_cmd = error_analysis.suggestions[0]
+                                recovery_res = self.shell.run(suggested_cmd)
+                                if recovery_res.exit_code == 0:
+                                    commands.append(CommandResult(cmd=f"RECOVERED: {suggested_cmd}", exit_code=0, 
+                                                                stdout=f"Auto-recovered from error: {recovery_res.stdout}", stderr="", duration_ms=recovery_res.duration_ms))
+                                else:
+                                    commands.append(res)  # Original failed command
+                            else:
+                                commands.append(res)  # Original failed command
+                        except Exception:
+                            commands.append(res)  # Original failed command on recovery error
+                    else:
+                        commands.append(res)
+                        
+                elif step.kind == "git":
+                    action = args.get("action", "push")
+                    if action == "push":
+                        out = self.git.push()
+                    else:
+                        out = self.git.status()
+                    commands.append(CommandResult(cmd=f"git {action}", exit_code=0, stdout=out, stderr="", duration_ms=0))
+                    
+                elif step.kind == "validate":
+                    cmd = args.get("cmd", "true")
+                    res = self.shell.run(cmd)
+                    
+                    # Enhanced validation with error analysis
+                    if res.exit_code != 0 and self.use_enhanced and self.error_handler:
+                        try:
+                            error_analysis = self.error_handler.analyze_error(res.stderr or res.stdout, cmd)
+                            validation_info = f"Validation failed. Error type: {error_analysis.error_type}, Confidence: {error_analysis.confidence:.2f}"
+                            if error_analysis.suggestions:
+                                validation_info += f"\\nSuggestions: {'; '.join(error_analysis.suggestions[:3])}"
+                            commands.append(CommandResult(cmd=f"VALIDATE_WITH_ANALYSIS: {cmd}", exit_code=res.exit_code, 
+                                                        stdout=validation_info, stderr=res.stderr, duration_ms=res.duration_ms))
+                        except Exception:
+                            commands.append(res)  # Original result on analysis error
+                    else:
+                        commands.append(res)
+                else:
+                    continue
+                    
+                # Update run log after each command
+                run_log.commands.append(commands[-1])
+                run_log.current_step = i + 1
+                self._write_partial_run_log(run_log)  # Log after each command
+                
+            except Exception as e:
+                # Log the failure and continue or abort based on severity
+                error_result = CommandResult(cmd=step.description, exit_code=-1, 
+                                           stdout="", stderr=str(e), duration_ms=0)
+                commands.append(error_result)
+                run_log.commands.append(error_result)
+                run_log.error = str(e)
+                run_log.status = "failed"
+                self._write_partial_run_log(run_log)  # Log the error immediately
+                if self._is_fatal_error(e):
+                    break
+                    
+        return commands
+
+    def _is_fatal_error(self, error: Exception) -> bool:
+        """Determine if an error should stop execution entirely."""
+        # For now, consider all exceptions non-fatal to allow partial progress
+        return False
+
     def _write_run_json(self, run_log: RunLog) -> None:
         # For tests, write to workspace_root structure; for production, use script directory
         if "pytest" in sys.modules or "/tmp/pytest" in self.workspace_root:

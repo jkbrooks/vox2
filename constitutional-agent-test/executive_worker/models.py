@@ -71,10 +71,15 @@ class RunLog:
     run_id: str
     task_id: str  # kept as 'task_id' in schema to match spec; value is the ticket_id
     start_ts: str
-    end_ts: str
-    eoi: Optional[Dict[str, str]]
-    commands: List[CommandResult]
-    commits: List[str]
-    validation: ValidationResult
-    affected_nodes: List[AffectedNode]
-    reflections: List[Dict[str, str]]
+    end_ts: Optional[str] = None
+    eoi: Optional[Dict[str, str]] = None
+    commands: List[CommandResult] = field(default_factory=list)
+    commits: List[str] = field(default_factory=list)
+    validation: Optional[ValidationResult] = None
+    affected_nodes: List[AffectedNode] = field(default_factory=list)
+    reflections: List[Dict[str, str]] = field(default_factory=list)
+    # New fields for incremental logging
+    status: str = "in_progress"  # in_progress | completed | failed
+    plan_steps: int = 0
+    current_step: int = 0
+    error: Optional[str] = None
