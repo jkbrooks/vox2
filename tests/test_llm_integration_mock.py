@@ -6,6 +6,12 @@ class FakeLLM:
     def generate_plan(self, *, ticket, repo_context=None):
         return f"Plan for {ticket.id}: Step 1, Step 2"
 
+    def generate_structured_plan(self, *, ticket, repo_context=None):
+        return {
+            "plan": f"Plan for {ticket.id}: Step 1, Step 2",
+            "actions": [],
+        }
+
 
 def test_agent_includes_llm_plan_in_run_json(tmp_path):
     agent = ExecutiveAgent(str(tmp_path), llm=FakeLLM())

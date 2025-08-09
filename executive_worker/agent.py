@@ -33,18 +33,73 @@ class ExecutiveAgent:
         self.git = GitClient(self.workspace_root)
         self.llm = llm
 
+    def _execute_actions(self, actions: list[dict]) -> list:
+        results = []
+        for action in actions or []:
+            atype = str(action.get("type", ""))
+            try:
+                if atype == "create_file":
+                    path = Path(self.workspace_root) / action["path"]
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    content = action.get("content", "")
+                    path.write_text(content, encoding="utf-8")
+                    results.append({"type": atype, "path": str(path), "ok": True})
+                elif atype == "append_file":
+                    path = Path(self.workspace_root) / action["path"]
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    content = action.get("content", "")
+                    with open(path, "a", encoding="utf-8") as f:
+                        f.write(content)
+                    results.append({"type": atype, "path": str(path), "ok": True})
+                elif atype == "replace_text":
+                    path = Path(self.workspace_root) / action["path"]
+                    find = action.get("find", "")
+                    replace = action.get("replace", "")
+                    if path.exists():
+                        text = path.read_text(encoding="utf-8")
+                        text2 = text.replace(find, replace)
+                        if text2 != text:
+                            path.write_text(text2, encoding="utf-8")
+                        results.append({"type": atype, "path": str(path), "replaced": text2 != text, "ok": True})
+                    else:
+                        results.append({"type": atype, "path": str(path), "ok": False, "error": "file not found"})
+                elif atype == "run_shell":
+                    cmd = action.get("command", "")
+                    r = self.shell.run(cmd)
+                    results.append({"type": atype, "command": cmd, "ok": r.success, "exit_code": r.exit_code})
+                elif atype == "cargo_check":
+                    r = self.shell.run("cargo check")
+                    results.append({"type": atype, "ok": r.success, "exit_code": r.exit_code})
+                elif atype == "run_pytest":
+                    r = self.shell.run("pytest -q")
+                    results.append({"type": atype, "ok": r.success, "exit_code": r.exit_code})
+                else:
+                    results.append({"type": atype, "ok": False, "error": "unsupported action"})
+            except Exception as exc:
+                results.append({"type": atype, "ok": False, "error": str(exc)})
+        return results
+
     def execute_ticket(self, ticket: Ticket, eoi: Optional[str] = None) -> RunResult:
         tree = TaskTree.load_or_create(self.workspace_root, f"ticket-{ticket.id}", ticket.title)
 
-        # Optional: generate a small plan using LLM (no code execution yet)
+        # Optional: generate a plan using LLM (structured if possible)
         llm_plan: Optional[str] = None
+        structured: Optional[dict] = None
         if self.llm is not None:
             try:
-                llm_plan = self.llm.generate_plan(ticket=ticket, repo_context=None)
+                structured = self.llm.generate_structured_plan(ticket=ticket, repo_context=None)
+                if isinstance(structured, dict):
+                    llm_plan = structured.get("plan")
             except Exception as exc:
                 llm_plan = f"[LLM plan generation failed: {exc}]"
 
         commands = []
+        # Execute structured actions before validation, if any
+        action_results = []
+        if structured and isinstance(structured, dict):
+            actions = structured.get("actions") or []
+            if isinstance(actions, list):
+                action_results = self._execute_actions(actions)
         cargo_toml = Path(self.workspace_root) / "Cargo.toml"
         if cargo_toml.exists():
             result = self.shell.run("cargo check")
@@ -88,6 +143,7 @@ class ExecutiveAgent:
             "title": ticket.title,
             "eoi": eoi,
             "llm_plan": llm_plan,
+            "actions": action_results,
             "commands": [
                 {
                     "cmd": c.command,

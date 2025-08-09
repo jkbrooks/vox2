@@ -1,0 +1,25 @@
+{
+  "task_id": "ticket-7",
+  "title": "Dev harness: Justfile + agent_run.sh + README updates",
+  "eoi": null,
+  "llm_plan": "### Plan to Address Ticket #7\n\n1. **Create Justfile**: \n   - Add a new file named `Justfile` in the root directory of the repository.\n   - Define the following recipes: `build`, `test`, `agent-run issue=<num>`, and `runs-index`.\n\n2. **Implement Build Recipe**: \n   - In the `Justfile`, implement the `build` recipe to execute `cargo check`.\n\n3. **Implement Test Recipe**: \n   - In the `Justfile`, implement the `test` recipe to execute `pytest -q`.\n\n4. **Implement Agent-Run Recipe**: \n   - In the `Justfile`, implement the `agent-run issue=<num>` recipe to call the new script `scripts/agent_run.sh` with the provided issue number.\n\n5. **Create agent_run.sh Script**: \n   - Add a new script file named `agent_run.sh` in the `scripts` directory.\n   - Implement the script to accept `--issue`, set the environment variable `EXEC_SKIP_DOCS_BUILD=1`, and forward the `OPENAI_API_KEY`.\n\n6. **Update README.md**: \n   - Add a new section titled \"Executive Worker\" to the `README.md`.\n   - Include instructions on how to use the `Justfile` and the `agent_run.sh` script, as well as information on where to find artifacts in `executive_worker/runs/`.\n\n7. **Modify Agent Workflow**: \n   - Update the agent's workflow to include a step that regenerates the `executive_worker/runs/index.md` after each run, ensuring it is idempotent.\n\n8. **Test New Functionality**: \n   - Run the `just agent-run issue=<num>` command to verify that it produces a new `executive_worker/runs/run-*.json` and updates the index correctly.\n\n9. **Ensure Executable Permissions**: \n   - Verify that the `agent_run.sh` script has executable permissions set.\n\n10. **Commit Changes**: \n   - Ensure all new and updated files are committed to the repository with appropriate commit messages. \n\nBy following these steps, the developer harness will be effectively introduced, meeting the ticket's requirements without altering runtime or server behavior.",
+  "commands": [
+    {
+      "cmd": "cargo check",
+      "cwd": "/workspaces/vox2",
+      "exit_code": 0,
+      "duration_ms": 859,
+      "top_stderr": [
+        "   Compiling voxelize v0.8.99 (/workspaces/vox2)",
+        "warning: unused import: `rayon::ThreadPool`",
+        "  --> server/server/mod.rs:14:5",
+        "   |",
+        "14 | use rayon::ThreadPool;"
+      ]
+    }
+  ],
+  "commit": "2d4f96488f8a13179cc10826695dcfbb4914f3b0",
+  "validation": {
+    "compiled": true
+  }
+}

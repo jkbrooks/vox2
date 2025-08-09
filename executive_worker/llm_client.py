@@ -13,6 +13,10 @@ class LLMInterface:
     def generate_plan(self, *, ticket: Ticket, repo_context: Optional[str] = None) -> str:  # pragma: no cover - interface only
         raise NotImplementedError
 
+    def generate_structured_plan(self, *, ticket: Ticket, repo_context: Optional[str] = None) -> dict:  # pragma: no cover - interface only
+        """Return a JSON-compatible dict with keys: plan: str, actions: list[dict]."""
+        raise NotImplementedError
+
 
 @dataclass
 class OpenAIChatLLM(LLMInterface):
@@ -75,5 +79,70 @@ Deliver: 5-10 concise steps with rationale when useful.
         )
         content = response.choices[0].message.content or ""
         return content.strip()
+
+    def generate_structured_plan(self, *, ticket: Ticket, repo_context: Optional[str] = None) -> dict:
+        try:
+            from openai import OpenAI  # type: ignore
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError(
+                "The 'openai' package is required. Add it to requirements and install."
+            ) from exc
+
+        client = OpenAI(api_key=self._resolve_api_key())
+
+        system_prompt = (
+            "You are an Executive Worker coding agent. Produce a structured execution plan."
+            " Only use the allowed actions, keep them minimal and idempotent."
+        )
+
+        schema = (
+            "Respond as a single JSON object with:\n"
+            "  plan: string (concise summary)\n"
+            "  actions: array of objects, each with one of:\n"
+            "    - {type: 'create_file', path: string, content: string}\n"
+            "    - {type: 'append_file', path: string, content: string}\n"
+            "    - {type: 'replace_text', path: string, find: string, replace: string}\n"
+            "    - {type: 'run_shell', command: string}\n"
+            "    - {type: 'cargo_check'}\n"
+            "    - {type: 'run_pytest'}\n"
+            "Notes:\n- paths must be relative to repo root.\n- keep content short.\n"
+        )
+
+        user_prompt = f"""
+Ticket: #{ticket.id} - {ticket.title}
+
+Summary:
+{ticket.body[:3000]}
+
+Repo Context (optional, may be empty):
+{(repo_context or '')[:1000]}
+
+{schema}
+"""
+
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.temperature,
+            max_tokens=min(self.max_tokens, 1200),
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content or "{}"
+
+        import json as _json
+
+        try:
+            data = _json.loads(content)
+        except Exception:
+            # Fallback to plain plan when JSON fails
+            return {"plan": content, "actions": []}
+        if not isinstance(data, dict):
+            return {"plan": content, "actions": []}
+        data.setdefault("plan", "")
+        data.setdefault("actions", [])
+        return data
 
 
