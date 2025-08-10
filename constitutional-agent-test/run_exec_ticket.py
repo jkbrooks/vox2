@@ -10,7 +10,7 @@ from executive_worker.models import Ticket
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--workspace-root", default=os.getcwd())
+    ap.add_argument("--workspace-root", default=os.path.dirname(os.getcwd()))
     ap.add_argument("--id", required=True)
     ap.add_argument("--title", required=True)
     ap.add_argument("--description", required=True)
