@@ -14,4 +14,6 @@ impl Default for GameConfig {
             server_port: 8080,
         }
     }
+}pub fn load_config() -> GameConfig {
+    GameConfig::default()
 }
