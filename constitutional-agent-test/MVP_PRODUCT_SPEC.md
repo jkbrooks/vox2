@@ -88,30 +88,127 @@ class ExecutiveAgent:
         self.git = GitClient(workspace_root)
 
     def execute_ticket(self, ticket: Ticket) -> RunResult:
-        # 1) create/refresh predictive task tree file
-        self.task_tree = TaskTree.load_or_create(ticket)
+        # 1) Deep upfront planning - analyze requirements and create strategy
+        deep_plan = self.analyze_requirements_and_plan(ticket)
+        
+        # 2) create/refresh predictive task tree file (based on deep plan)
+        self.task_tree = TaskTree.load_or_create(ticket, deep_plan)
+
+        # 3) Initialize run log immediately for crash-safe incremental logging
+        run_log = self.initialize_run_log(ticket, deep_plan)
+        self.write_partial_run_log(run_log)  # Write initial state to disk
 
         ready = False
         while not ready:
             eoi = self.pick_eoi_optional(ticket, self.task_tree)
+            run_log.eoi = eoi
+            self.write_partial_run_log(run_log)  # Update with EOI selection
+            
             prompt = self.generate_system_prompt(ticket, eoi, self.task_tree)
 
             plan = self.plan_current_cycle(prompt)        # may be ephemeral scratchpad
-            result = self.execute_plan_with_tools(plan)   # search/edit/shell/git
+            run_log.plan_steps = len(plan)
+            self.write_partial_run_log(run_log)  # Update with plan information
+            
+            result = self.execute_plan_with_tools(plan, run_log)   # search/edit/shell/git + incremental logging
             validation = self.validate_changes()          # build/tests
+            run_log.validation = validation
+            self.write_partial_run_log(run_log)  # Update with validation results
 
             self.update_task_tree(ticket, result, validation)
             commit_sha = self.commit_and_push(ticket)
-            run_log = self.write_run_json(ticket, eoi, result, validation, commit_sha)
+            if commit_sha:
+                run_log.commits.append(commit_sha)
+                self.write_partial_run_log(run_log)  # Update with commit SHA
 
             ready = self.check_ready_to_submit(ticket, self.task_tree, validation)
 
+        # Final completion status
+        run_log.end_ts = datetime.utcnow().isoformat()
+        run_log.status = "completed"
+        self.write_partial_run_log(run_log)
         return run_log
+```
+
+### 4.1 Incremental Run Logging Methods
+
+```python
+def initialize_run_log(self, ticket: Ticket) -> RunLog:
+    """Create initial run log with basic ticket info and start timestamp."""
+    return RunLog(
+        run_id=f"r-{uuid.uuid4()}",
+        task_id=ticket.ticket_id,
+        start_ts=datetime.utcnow().isoformat(),
+        status="in_progress",
+        commands=[],
+        commits=[],
+        plan_steps=0,
+        current_step=0
+    )
+
+def write_partial_run_log(self, run_log: RunLog) -> None:
+    """Write current run log state to disk immediately (crash-safe)."""
+    # Write to runs/{HHMMSS-YYYYMMDD-task_id-uuid}.json
+    # Overwrites previous version with current state
+
+def execute_plan_with_tools(self, plan: List[PlanStep], run_log: RunLog) -> List[CommandResult]:
+    """Execute plan with incremental logging after each command."""
+    results = []
+    for i, step in enumerate(plan):
+        try:
+            result = self.execute_single_step(step)
+            results.append(result)
+            run_log.commands.append(result)
+            run_log.current_step = i + 1
+            self.write_partial_run_log(run_log)  # Log after each command
+        except Exception as e:
+            # Log the failure and determine if execution should continue
+            error_result = CommandResult(cmd=step.description, exit_code=-1, 
+                                       stdout="", stderr=str(e), duration_ms=0)
+            results.append(error_result)
+            run_log.commands.append(error_result)
+            run_log.error = str(e)
+            run_log.status = "failed"
+            self.write_partial_run_log(run_log)  # Log the error immediately
+            if self.is_fatal_error(e):
+                break
+    return results
+```
+
+### 4.1 Deep Upfront Planning (Phase II Enhancement)
+
+```python
+def analyze_requirements_and_plan(self, ticket: Ticket) -> DeepPlan:
+    """
+    Perform comprehensive upfront analysis before execution cycles begin.
+    Returns strategic plan with requirements, success criteria, and approach.
+    """
+    # 1) Requirement decomposition
+    requirements = self.llm.analyze_requirements(ticket.description)
+    
+    # 2) Success criteria definition  
+    success_criteria = self.llm.define_success_criteria(ticket, requirements)
+    
+    # 3) Risk assessment and complexity analysis
+    risks = self.llm.assess_complexity_and_risks(ticket, requirements, self.codebase_summary)
+    
+    # 4) High-level strategy formulation
+    strategy = self.llm.create_strategy(ticket, requirements, risks, self.codebase_summary)
+    
+    return DeepPlan(
+        requirements=requirements,
+        success_criteria=success_criteria, 
+        risks=risks,
+        strategy=strategy,
+        estimated_complexity=self.estimate_complexity(requirements)
+    )
 ```
 
 Notes:
 - plan, execute, validate can be combined in one LLM prompt if desired; MVP supports either pattern.
-- A cycle ends when the agent decides it’s done for now; nodes need not be 100% complete.
+- A cycle ends when the agent decides it's done for now; nodes need not be 100% complete.
+- **Deep planning provides strategic context for all subsequent execution cycles.**
+- **Incremental logging ensures run analysis is possible even when agent crashes mid-execution.**
 
 ## 5) Functions / Tools
 

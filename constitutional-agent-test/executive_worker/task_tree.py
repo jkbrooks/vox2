@@ -9,6 +9,9 @@ try:
 except Exception:  # pragma: no cover
     yaml = None  # type: ignore
 
+# TODO: Phase II - Complex hierarchical task tree logic commented out for now
+# Will be reimplemented later with proper dependency management and hierarchical planning
+
 
 @dataclass
 class TaskTreeNode:
@@ -34,7 +37,7 @@ class TaskTree:
         return os.path.join(workspace_root, "task_tree.yaml")
 
     @classmethod
-    def load_or_create(cls, workspace_root: str, task_id: str, title: str) -> "TaskTree":
+    def load_or_create(cls, workspace_root: str, task_id: str, title: str, deep_plan=None) -> "TaskTree":
         path = cls.path_for(workspace_root)
         if os.path.exists(path) and yaml is not None:
             try:
@@ -61,7 +64,17 @@ class TaskTree:
                 return cls(id=str(data.get("id", task_id)), title=str(data.get("title", title)), nodes=nodes)
             except Exception:
                 pass
+        # Create simple initial tree structure  
         tree = cls(id=task_id, title=title, nodes=[])
+        if deep_plan:
+            # TODO: Phase II - Convert deep_plan into task tree nodes
+            # For now, create a simple placeholder node
+            tree.nodes.append(TaskTreeNode(
+                id=f"node-{task_id}",
+                title=title,
+                status="partial", 
+                notes="Generated from deep planning analysis"
+            ))
         tree.save(workspace_root)
         return tree
 

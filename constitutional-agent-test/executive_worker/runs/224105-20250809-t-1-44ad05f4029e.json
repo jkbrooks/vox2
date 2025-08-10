@@ -1,0 +1,49 @@
+{
+  "run_id": "r-112cbbe4-95bc-46b7-9eb9-44ad05f4029e",
+  "task_id": "t-1",
+  "start_ts": "2025-08-09T22:41:05.422050",
+  "end_ts": "2025-08-09T22:41:05.430829",
+  "eoi": null,
+  "commands": [
+    {
+      "cmd": "echo hello",
+      "exit_code": 0,
+      "stdout": "hello\n",
+      "stderr": "",
+      "duration_ms": 2
+    },
+    {
+      "cmd": "true",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "duration_ms": 1
+    }
+  ],
+  "commits": [],
+  "validation": {
+    "compiled": null,
+    "tests": {
+      "passed": true,
+      "summary": "by-step"
+    }
+  },
+  "affected_nodes": [
+    {
+      "id": "node-t-1",
+      "status": "partial",
+      "coverage_pct": 10,
+      "evidence": {
+        "commits": [],
+        "files": []
+      },
+      "note": "initial pass"
+    }
+  ],
+  "reflections": [
+    {
+      "type": "decision",
+      "message": "MVP cycle executed"
+    }
+  ]
+}

@@ -45,6 +45,8 @@ class EnhancedCodebaseUtils:
         self.symbol_cache = {}
         self.file_cache = {}
         self.dependency_graph = defaultdict(set)
+        self._cached_index = None  # Cache the built index
+        self._cache_timestamp = None
         
         # Setup SQLite cache (inspired by Aider)
         self.db_path = self.cache_dir / "codebase.db"
@@ -59,7 +61,7 @@ class EnhancedCodebaseUtils:
                         file_path TEXT PRIMARY KEY,
                         mtime REAL,
                         symbols TEXT,
-                        references TEXT
+                        symbol_references TEXT
                     )
                 """)
                 conn.execute("""
@@ -482,7 +484,16 @@ class EnhancedCodebaseUtils:
     
     def build_codebase_index(self, force_refresh: bool = False) -> Dict:
         """Build comprehensive index of the codebase."""
-        print("Building enhanced codebase index...")
+        import time
+        
+        # Check cache first
+        current_time = time.time()
+        if (not force_refresh and self._cached_index is not None and 
+            self._cache_timestamp and (current_time - self._cache_timestamp) < 300):  # 5 minute cache
+            print("📋 Using cached codebase index")
+            return self._cached_index
+            
+        print("🔍 Building enhanced codebase index...")
         
         # Get all source files
         patterns = ["**/*.py", "**/*.js", "**/*.ts", "**/*.rs", "**/*.java", "**/*.cpp", "**/*.c", "**/*.go"]
@@ -490,31 +501,48 @@ class EnhancedCodebaseUtils:
         for pattern in patterns:
             all_files.extend(self.glob_files(pattern))
         
+        total_files = len(all_files)
+        if total_files > 0:
+            print(f"📁 Found {total_files} source files to analyze")
+        
         # Process files
         total_symbols = 0
         processed_files = 0
         
-        for filepath in all_files:
+        for i, filepath in enumerate(all_files):
             try:
                 file_info = self.get_file_context(filepath)
                 if 'symbols' in file_info:
                     self.file_cache[filepath] = file_info
                     total_symbols += len(file_info['symbols'])
                     processed_files += 1
+                    
+                # Show progress every 10% or every 25 files, whichever is more frequent
+                if total_files > 10:
+                    progress_interval = max(1, min(total_files // 10, 25))
+                    if (i + 1) % progress_interval == 0 or i == total_files - 1:
+                        percentage = int((i + 1) / total_files * 100)
+                        print(f"📊 Indexing progress: {percentage}% ({i + 1}/{total_files} files, {total_symbols} symbols found)")
+                        
             except Exception as e:
-                print(f"Error processing {filepath}: {e}")
+                if total_files <= 50:  # Only show errors for small codebases to avoid spam
+                    print(f"⚠️  Error processing {filepath}: {e}")
         
         index_summary = {
-            'total_files': len(all_files),
+            'total_files': total_files,
             'processed_files': processed_files,
             'total_symbols': total_symbols,
             'languages': list(set(self._detect_language(f) for f in all_files))
         }
         
-        print(f"Enhanced index complete: {processed_files} files, {total_symbols} symbols")
+        # Cache the result
+        self._cached_index = index_summary
+        self._cache_timestamp = current_time
+        
+        print(f"✅ Enhanced index complete: {processed_files} files, {total_symbols} symbols (cached for 5min)")
         return index_summary
 
-    def workspace_summary(self) -> str:
+    def workspace_summary(self, max_files: int = 15) -> str:
         """Generate enhanced workspace summary with symbol information."""
         if not self.file_cache:
             self.build_codebase_index()
@@ -548,7 +576,7 @@ class EnhancedCodebaseUtils:
         
         return summary
 
-    def candidate_eoi_paths(self) -> List[str]:
+    def candidate_eoi_paths(self, limit: int = 20) -> List[str]:
         """Get enhanced candidate Entity of Interest paths based on symbol importance."""
         # Build index if not already done
         if not self.file_cache:
@@ -578,7 +606,7 @@ class EnhancedCodebaseUtils:
         top_symbol_files = sorted(symbol_counts.items(), key=lambda x: x[1], reverse=True)[:10]
         candidates.extend([f[0] for f in top_symbol_files])
         
-        return list(set(candidates))
+        return list(set(candidates))[:limit]
 
     def build_dependency_graph(self) -> Dict:
         """Build a dependency graph using NetworkX (if available)."""

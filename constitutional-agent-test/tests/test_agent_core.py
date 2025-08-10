@@ -7,6 +7,7 @@ from typing import List
 
 import builtins
 import types
+import pytest
 
 from executive_worker.agent import ExecutiveWorker
 from executive_worker.models import Ticket, PlanStep, CommandResult
@@ -29,6 +30,27 @@ class DummyLLM:
         if candidates:
             return {"label": "auto", "path": candidates[0]}
         return ticket.eoi
+
+    def analyze_requirements(self, description: str):
+        return ["Dummy requirement 1", "Dummy requirement 2"]
+    
+    def define_success_criteria(self, ticket, requirements):
+        return ["Code compiles", "Tests pass"]
+    
+    def assess_complexity_and_risks(self, ticket, requirements, codebase_summary):
+        return ["Low complexity risk"]
+    
+    def create_strategy(self, ticket, requirements, risks, codebase_summary):
+        return "Dummy strategy: implement step by step"
+    
+    def validate_completion(self, ticket_description, success_criteria, workspace_summary):
+        # Always return True for tests to prevent infinite loops
+        return True
+        
+    # Mock the client attribute that's used in semantic validation
+    @property 
+    def client(self):
+        return self
 
 
 class DummyGit:
@@ -69,6 +91,10 @@ def test_task_tree_and_run_log_written(tmp_path, monkeypatch):
     ticket = Ticket(ticket_id="t-1", title="hello", description="say hello")
     log = agent.execute_ticket(ticket)
 
+    # Check if the agent failed due to max cycles
+    if log.status == "failed_max_cycles":
+        pytest.fail(f"Agent failed to complete ticket: {log.error}")
+
     runs_dir = root / "constitutional-agent-test" / "executive_worker" / "runs"
     logs: List[Path] = list(runs_dir.glob("*.json"))
     assert logs, "run.json not written"
@@ -78,6 +104,9 @@ def test_task_tree_and_run_log_written(tmp_path, monkeypatch):
     assert data["task_id"] == "t-1"
     assert isinstance(data["commands"], list)
     assert any("echo" in (cmd.get("stdout", "") + cmd.get("cmd", "")) for cmd in data["commands"]) or True
+    
+    # Ensure the agent actually completed successfully
+    assert data["status"] == "completed", f"Expected completed status, got: {data.get('status')}"
 
 
 def test_codebase_utils_summary_and_candidates(tmp_path):
