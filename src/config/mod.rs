@@ -18,4 +18,19 @@ impl Default for GameConfig {
     GameConfig::default()
 }pub fn save_config(config: &GameConfig) {
     println!("Config: {{:?}}", config);
+}#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_config() {
+        let config = load_config();
+        assert_eq!(config.max_players, 100);
+    }
+
+    #[test]
+    fn test_save_config() {
+        let config = load_config();
+        save_config(&config);
+    }
 }
