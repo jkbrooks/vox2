@@ -25,6 +25,13 @@
       "stdout": "Basic edits applied",
       "stderr": "",
       "duration_ms": 0
+    },
+    {
+      "cmd": "edit_engine.apply_edits",
+      "exit_code": 0,
+      "stdout": "Basic edits applied",
+      "stderr": "",
+      "duration_ms": 0
     }
   ],
   "commits": [],
@@ -33,6 +40,6 @@
   "reflections": [],
   "status": "in_progress",
   "plan_steps": 8,
-  "current_step": 3,
+  "current_step": 4,
   "error": null
 }

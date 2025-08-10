@@ -16,4 +16,6 @@ impl Default for GameConfig {
     }
 }pub fn load_config() -> GameConfig {
     GameConfig::default()
+}pub fn save_config(config: &GameConfig) {
+    println!("Config: {{:?}}", config);
 }
