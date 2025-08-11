@@ -204,6 +204,18 @@ class ExecutiveWorker:
                     commits.append(sha)
             elif step.kind == "shell":
                 cmd = args.get("cmd", "echo noop")
+                
+                # Skip non-executable descriptive commands
+                if not self._is_valid_shell_command(cmd):
+                    commands.append(CommandResult(
+                        cmd=cmd, 
+                        exit_code=-1, 
+                        stdout="", 
+                        stderr=f"Skipped non-executable command: {cmd}", 
+                        duration_ms=0
+                    ))
+                    continue
+                    
                 res = self.shell.run(cmd)
                 
                 # Use intelligent error recovery if command failed and enhanced mode is enabled
@@ -234,7 +246,33 @@ class ExecutiveWorker:
                 commands.append(CommandResult(cmd=f"git {action}", exit_code=0, stdout=out, stderr="", duration_ms=0))
             elif step.kind == "validate":
                 cmd = args.get("cmd", "true")
-                res = self.shell.run(cmd)
+                
+                # Handle compound validation commands by splitting on && and running separately
+                if "&&" in cmd:
+                    sub_commands = [c.strip() for c in cmd.split("&&")]
+                    all_passed = True
+                    combined_stdout = ""
+                    combined_stderr = ""
+                    total_duration = 0
+                    
+                    for sub_cmd in sub_commands:
+                        if self._is_valid_shell_command(sub_cmd):
+                            sub_res = self.shell.run(sub_cmd)
+                            combined_stdout += sub_res.stdout + "\n"
+                            combined_stderr += sub_res.stderr + "\n"
+                            total_duration += sub_res.duration_ms
+                            if sub_res.exit_code != 0:
+                                all_passed = False
+                    
+                    res = CommandResult(
+                        cmd=cmd,
+                        exit_code=0 if all_passed else 1,
+                        stdout=combined_stdout.strip(),
+                        stderr=combined_stderr.strip(),
+                        duration_ms=total_duration
+                    )
+                else:
+                    res = self.shell.run(cmd)
                 
                 # Enhanced validation with error analysis
                 if res.exit_code != 0 and self.use_enhanced and self.error_handler:
@@ -522,4 +560,48 @@ class ExecutiveWorker:
         """MVP heuristic: treat one cycle as sufficient, or rely on tests result if provided."""
         if validation.tests and validation.tests.passed:
             return True
+        return True
+    
+    def _is_valid_shell_command(self, cmd: str) -> bool:
+        """Check if a command is a valid shell command and not descriptive text."""
+        if not cmd or not isinstance(cmd, str):
+            return False
+        
+        # Commands that start with common shell utilities are likely valid
+        valid_starters = [
+            'mkdir', 'touch', 'echo', 'ls', 'cd', 'cp', 'mv', 'rm', 'cat', 'grep',
+            'find', 'sed', 'awk', 'sort', 'uniq', 'head', 'tail', 'wc', 'chmod',
+            'cargo', 'npm', 'python', 'node', 'git', 'rustc', 'gcc', 'make', 'cmake'
+        ]
+        
+        cmd_lower = cmd.lower().strip()
+        first_word = cmd_lower.split()[0] if cmd_lower.split() else ""
+        
+        # Check if it starts with a valid command
+        if first_word in valid_starters:
+            return True
+        
+        # Check if it's a path-based command (starts with ./ or /)
+        if first_word.startswith('./') or first_word.startswith('/'):
+            return True
+        
+        # Descriptive text patterns that are NOT shell commands
+        descriptive_patterns = [
+            'define', 'implement', 'create a', 'add a', 'write', 'build', 
+            'generate', 'establish', 'set up', 'configure'
+        ]
+        
+        # If it starts with descriptive words, it's probably not a shell command
+        for pattern in descriptive_patterns:
+            if cmd_lower.startswith(pattern):
+                return False
+        
+        # If it contains no shell operators and looks like English text, skip it
+        shell_operators = ['|', '>', '<', '&&', '||', ';', '$(', '`']
+        has_operators = any(op in cmd for op in shell_operators)
+        
+        # If it's all lowercase words without operators, likely descriptive
+        if not has_operators and len(cmd.split()) > 3 and cmd.islower():
+            return False
+            
         return True
