@@ -1,4 +1,5 @@
-pub mod database;
+pub mod logging;
+mod database;
 mod audio;
 pub mod config;
 pub mod logging;
