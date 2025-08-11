@@ -40,7 +40,6 @@ class LLMClient:
             temperature=0.2,
         )
         content = resp.choices[0].message.content or "[]"
-        print(f"DEBUG LLM RAW: {content[:500]}...")
         import json
 
         # Try direct JSON
@@ -222,13 +221,8 @@ class LLMClient:
 
     def create_plan_from_prompt(self, prompt: str) -> List[PlanStep]:
         steps = self._chat_json_list(SYSTEM_PROMPT, prompt)
-        print(f"DEBUG LLM: _chat_json_list returned {len(steps)} steps")
         if not steps:
-            print("DEBUG LLM: Falling back to heuristic method")
             steps = self._heuristic_plan_from_prompt(prompt)
-            print(f"DEBUG LLM: Heuristic method returned {len(steps)} steps")
-        else:
-            print("DEBUG LLM: Using LLM-generated steps")
         return steps
 
     def choose_eoi(self, *, ticket: Ticket, candidates: List[str], iso_eoi_excerpt: str, guidance: str) -> Optional[Dict[str, str]]:
