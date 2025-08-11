@@ -32,17 +32,17 @@ from .prompting import compose_system_prompt, load_iso_42010_eoi_excerpt, load_c
 
 class ExecutiveWorker:
     def __init__(self, workspace_root: str, model: str = "gpt-4o-mini", use_enhanced: bool = True) -> None:
-        self.workspace_root = workspace_root
-        self.shell = ShellRunner(cwd=workspace_root)
+        self.workspace_root = os.path.abspath(workspace_root)
+        self.shell = ShellRunner(cwd=self.workspace_root)
         
-        # Initialize both basic and enhanced utilities
-        self.code = CodebaseUtilities(workspace_root)
-        self.enhanced_code = EnhancedCodebaseUtils(workspace_root) if use_enhanced else None
+        # Initialize both basic and enhanced utilities with the correct root
+        self.code = CodebaseUtilities(self.workspace_root)
+        self.enhanced_code = EnhancedCodebaseUtils(self.workspace_root) if use_enhanced else None
         
-        self.edit_engine = EditEngine(workspace_root)
-        self.enhanced_edit_engine = EnhancedEditEngine(workspace_root) if use_enhanced else None
+        self.edit_engine = EditEngine(self.workspace_root)
+        self.enhanced_edit_engine = EnhancedEditEngine(self.workspace_root) if use_enhanced else None
         
-        self.error_handler = IntelligentErrorHandler(workspace_root) if use_enhanced else None
+        self.error_handler = IntelligentErrorHandler(self.workspace_root) if use_enhanced else None
         
         self.git = GitOps(self.shell)
         self.llm = LLMClient(model=model)
@@ -415,21 +415,25 @@ class ExecutiveWorker:
         """Validate Rust project with cargo check and cargo test."""
         print("🔍 Running Rust validation (cargo check + cargo test)...")
         
-        # Check compilation
-        check_result = self.shell.run("cargo check")
+        # Check compilation, suppressing warnings
+        check_result = self.shell.run("cargo check --quiet --all-targets --all-features 2>/dev/null")
         compiled = check_result.exit_code == 0
         
         if not compiled:
-            print(f"❌ Cargo check failed: {check_result.stderr}")
+            # If compilation fails, re-run without suppression to capture the actual error
+            check_result_with_error = self.shell.run("cargo check")
+            print(f"❌ Cargo check failed: {check_result_with_error.stderr}")
         else:
             print("✅ Cargo check passed")
         
-        # Run tests
-        test_result = self.shell.run("cargo test")
+        # Run tests, suppressing warnings
+        test_result = self.shell.run("cargo test --quiet --all-targets --all-features 2>/dev/null")
         tests_passed = test_result.exit_code == 0
         
         if not tests_passed:
-            print(f"❌ Cargo test failed: {test_result.stderr}")
+            # If tests fail, re-run without suppression to capture the failure details
+            test_result_with_error = self.shell.run("cargo test")
+            print(f"❌ Cargo test failed: {test_result_with_error.stderr}")
         else:
             print("✅ Cargo test passed")
         
