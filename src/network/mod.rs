@@ -5,6 +5,10 @@ struct NetworkConfig {
     server_address: String,
 }
 
+pub fn disconnect_server() {
+    println!("Disconnected from server");
+}
+
 pub fn connect_server() -> &'static str {
     "Connection successful"
 }
