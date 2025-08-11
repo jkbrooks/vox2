@@ -19,15 +19,30 @@ class ShellRunner:
         if env:
             merged_env.update(env)
         try:
-            proc = subprocess.run(
-                cmd if isinstance(cmd, list) else shlex.split(cmd),
-                cwd=self.cwd,
-                env=merged_env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=timeout,
-                text=True,
-            )
+            # Handle compound shell commands with && or ||
+            if any(op in cmd for op in ['&&', '||', ';', '|']):
+                # Use shell=True for compound commands
+                proc = subprocess.run(
+                    cmd,
+                    cwd=self.cwd,
+                    env=merged_env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=timeout,
+                    text=True,
+                    shell=True,
+                )
+            else:
+                # Use shell=False for simple commands
+                proc = subprocess.run(
+                    cmd if isinstance(cmd, list) else shlex.split(cmd),
+                    cwd=self.cwd,
+                    env=merged_env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=timeout,
+                    text=True,
+                )
             end = time.time()
             return CommandResult(
                 cmd=cmd,
