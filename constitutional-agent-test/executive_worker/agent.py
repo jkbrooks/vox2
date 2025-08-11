@@ -134,8 +134,9 @@ class ExecutiveWorker:
         # Debug: print the plan to see what's being generated
         print(f"DEBUG: Generated plan with {len(plan)} steps:")
         for i, step in enumerate(plan):
-            print(f"  {i+1}. Kind: {step.kind}, Description: {step.description[:50]}...")
+            print(f"  {i+1}. Kind: '{step.kind}', Description: '{step.description[:50]}...'")
             print(f"     Args: {step.args}")
+            print(f"     Type of step: {type(step)}, Type of kind: {type(step.kind)}")
         return plan
 
     def execute_plan_with_tools(self, ticket: Ticket, plan: List[PlanStep]) -> Tuple[List[CommandResult], List[str]]:
@@ -463,6 +464,18 @@ class ExecutiveWorker:
                         
                 elif step.kind == "shell":
                     cmd = args.get("cmd", "echo noop")
+                    
+                    # Skip non-executable descriptive commands
+                    if not self._is_valid_shell_command(cmd):
+                        commands.append(CommandResult(
+                            cmd=cmd, 
+                            exit_code=-1, 
+                            stdout="", 
+                            stderr=f"Skipped non-executable command: {cmd}", 
+                            duration_ms=0
+                        ))
+                        continue
+                        
                     res = self.shell.run(cmd)
                     
                     # Use intelligent error recovery if command failed and enhanced mode is enabled
