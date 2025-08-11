@@ -5,6 +5,21 @@ struct NetworkConfig {
     server_address: String,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_connect_server() {
+        assert_eq!(connect_server(), "Connection successful");
+    }
+
+    #[test]
+    fn test_disconnect_server() {
+        disconnect_server(); // Just checks if it runs without panic
+    }
+}
+
 pub fn disconnect_server() {
     println!("Disconnected from server");
 }
