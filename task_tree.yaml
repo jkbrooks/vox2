@@ -248,3 +248,16 @@ nodes:
     files: []
   notes: initial pass
   children: []
+- id: node-issue-27-fixed
+  title: node-issue-27-fixed
+  deps: []
+  status: partial
+  coverage_pct: 10
+  acceptance:
+  - compiles
+  - tests pass
+  evidence:
+    commits: []
+    files: []
+  notes: initial pass
+  children: []
