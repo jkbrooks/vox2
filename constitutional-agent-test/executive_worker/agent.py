@@ -386,6 +386,7 @@ class ExecutiveWorker:
         """Execute plan with incremental logging after each command."""
         commands: List[CommandResult] = []
         for i, step in enumerate(plan):
+            print(f"DEBUG EXEC: Step {i+1}: kind='{step.kind}', desc='{step.description[:50]}...', args={step.args}")
             try:
                 # Ensure args is always a dict
                 args = step.args if isinstance(step.args, dict) else {}
