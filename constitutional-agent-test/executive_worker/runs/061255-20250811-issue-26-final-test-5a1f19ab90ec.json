@@ -2,7 +2,7 @@
   "run_id": "r-7841964c-f8a7-4acd-960d-5a1f19ab90ec",
   "task_id": "issue-26-final-test",
   "start_ts": "2025-08-11T06:12:55.638704",
-  "end_ts": null,
+  "end_ts": "2025-08-11T06:13:59.656488",
   "eoi": null,
   "commands": [
     {
@@ -70,9 +70,25 @@
       "summary": "by-step"
     }
   },
-  "affected_nodes": [],
-  "reflections": [],
-  "status": "in_progress",
+  "affected_nodes": [
+    {
+      "id": "node-issue-26-final-test",
+      "status": "partial",
+      "coverage_pct": 10,
+      "evidence": {
+        "commits": [],
+        "files": []
+      },
+      "note": "initial pass"
+    }
+  ],
+  "reflections": [
+    {
+      "type": "decision",
+      "message": "MVP cycle executed"
+    }
+  ],
+  "status": "completed",
   "plan_steps": 8,
   "current_step": 8,
   "error": null
