@@ -32,6 +32,13 @@
       "stdout": "AST-aware edits applied",
       "stderr": "",
       "duration_ms": 0
+    },
+    {
+      "cmd": "enhanced_edit_engine.apply_edits",
+      "exit_code": 0,
+      "stdout": "AST-aware edits applied",
+      "stderr": "",
+      "duration_ms": 0
     }
   ],
   "commits": [],
@@ -40,6 +47,6 @@
   "reflections": [],
   "status": "in_progress",
   "plan_steps": 9,
-  "current_step": 4,
+  "current_step": 5,
   "error": null
 }
