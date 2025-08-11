@@ -5,6 +5,10 @@ struct NetworkConfig {
     server_address: String,
 }
 
+pub fn connect_server() -> &'static str {
+    "Connection successful"
+}
+
 impl Default for NetworkConfig {
     fn default() -> Self {
         NetworkConfig {
