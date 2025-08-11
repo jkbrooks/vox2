@@ -130,14 +130,7 @@ class ExecutiveWorker:
         )
 
     def plan_current_cycle(self, prompt: str) -> List[PlanStep]:
-        plan = self.llm.create_plan_from_prompt(prompt)
-        # Debug: print the plan to see what's being generated
-        print(f"DEBUG: Generated plan with {len(plan)} steps:")
-        for i, step in enumerate(plan):
-            print(f"  {i+1}. Kind: '{step.kind}', Description: '{step.description[:50]}...'")
-            print(f"     Args: {step.args}")
-            print(f"     Type of step: {type(step)}, Type of kind: {type(step.kind)}")
-        return plan
+        return self.llm.create_plan_from_prompt(prompt)
 
     def execute_plan_with_tools(self, ticket: Ticket, plan: List[PlanStep]) -> Tuple[List[CommandResult], List[str]]:
         commands: List[CommandResult] = []
