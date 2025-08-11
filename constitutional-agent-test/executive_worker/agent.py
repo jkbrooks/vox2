@@ -207,13 +207,18 @@ class ExecutiveWorker:
                 
                 # Skip non-executable descriptive commands
                 if not self._is_valid_shell_command(cmd):
-                    commands.append(CommandResult(
-                        cmd=cmd, 
-                        exit_code=-1, 
-                        stdout="", 
-                        stderr=f"Skipped non-executable command: {cmd}", 
-                        duration_ms=0
-                    ))
+                    # Try to auto-convert module-related descriptive commands to edit commands
+                    if self._is_module_integration_command(cmd):
+                        edit_result = self._convert_to_module_edit(cmd)
+                        commands.append(edit_result)
+                    else:
+                        commands.append(CommandResult(
+                            cmd=cmd, 
+                            exit_code=-1, 
+                            stdout="", 
+                            stderr=f"Skipped non-executable command: {cmd}", 
+                            duration_ms=0
+                        ))
                     continue
                     
                 res = self.shell.run(cmd)
@@ -457,18 +462,23 @@ class ExecutiveWorker:
                         
                 elif step.kind == "shell":
                     cmd = args.get("cmd", "echo noop")
-                    
+
                     # Skip non-executable descriptive commands
                     if not self._is_valid_shell_command(cmd):
-                        commands.append(CommandResult(
-                            cmd=cmd, 
-                            exit_code=-1, 
-                            stdout="", 
-                            stderr=f"Skipped non-executable command: {cmd}", 
-                            duration_ms=0
-                        ))
+                        # Try to auto-convert module-related descriptive commands to edit commands
+                        if self._is_module_integration_command(cmd):
+                            edit_result = self._convert_to_module_edit(cmd)
+                            commands.append(edit_result)
+                        else:
+                            commands.append(CommandResult(
+                                cmd=cmd,
+                                exit_code=-1,
+                                stdout="",
+                                stderr=f"Skipped non-executable command: {cmd}",
+                                duration_ms=0
+                            ))
                         continue
-                        
+                            
                     res = self.shell.run(cmd)
                     
                     # Use intelligent error recovery if command failed and enhanced mode is enabled
@@ -617,3 +627,65 @@ class ExecutiveWorker:
             return False
             
         return True
+
+    def _is_module_integration_command(self, cmd: str) -> bool:
+        """Check if a command is about adding module declarations to lib.rs."""
+        if not cmd or not isinstance(cmd, str):
+            return False
+        
+        cmd_lower = cmd.lower().strip()
+        module_patterns = [
+            'add the', 'add module', 'declare module', 'integrate module',
+            'library file', 'lib.rs', 'pub mod'
+        ]
+        
+        return any(pattern in cmd_lower for pattern in module_patterns)
+
+    def _convert_to_module_edit(self, cmd: str) -> CommandResult:
+        """Convert a descriptive module integration command to an actual edit operation."""
+        try:
+            # Extract module name from common patterns
+            import re
+            cmd_lower = cmd.lower()
+            
+            # Look for patterns like "database module", "audio module", etc.
+            module_match = re.search(r'(\w+)\s+module', cmd_lower)
+            if not module_match:
+                # Try other patterns
+                if 'database' in cmd_lower:
+                    module_name = 'database'
+                elif 'audio' in cmd_lower:
+                    module_name = 'audio'
+                elif 'network' in cmd_lower:
+                    module_name = 'network'
+                else:
+                    raise ValueError("Could not extract module name")
+            else:
+                module_name = module_match.group(1)
+            
+            # Apply the edit using the enhanced edit engine
+            from .edit_engine import FileEdit
+            edit = FileEdit(
+                path="src/lib.rs",
+                original_substring="",  # This will trigger the smart module handling
+                replacement=f"pub mod {module_name};"
+            )
+            
+            self.edit_engine.apply_edits([edit])
+            
+            return CommandResult(
+                cmd=f"edit_engine.apply_edits (converted from: {cmd})",
+                exit_code=0,
+                stdout=f"Successfully added 'pub mod {module_name};' to src/lib.rs",
+                stderr="",
+                duration_ms=0
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                cmd=f"edit_engine.apply_edits (failed conversion from: {cmd})",
+                exit_code=1,
+                stdout="",
+                stderr=f"Failed to convert module command: {str(e)}",
+                duration_ms=0
+            )

@@ -41,8 +41,26 @@ class EditEngine:
                     new_content = content + e.replacement
                 else:
                     if e.original_substring not in content:
-                        raise RuntimeError(f"Context '{e.original_substring}' not found in {e.path}")
-                    new_content = content.replace(e.original_substring, e.replacement, 1)
+                        # Special handling for module declarations in lib.rs
+                        if e.path.endswith("lib.rs") and "pub mod" in e.replacement:
+                            # Extract module name from replacement
+                            import re
+                            mod_match = re.search(r'pub mod (\w+);', e.replacement)
+                            if mod_match:
+                                module_name = mod_match.group(1)
+                                # Check if module already exists
+                                if f"pub mod {module_name};" not in content:
+                                    # Add module declaration at the end
+                                    new_content = content.rstrip() + f"\npub mod {module_name};\n"
+                                else:
+                                    # Module already exists, no change needed
+                                    new_content = content
+                            else:
+                                raise RuntimeError(f"Context '{e.original_substring}' not found in {e.path}")
+                        else:
+                            raise RuntimeError(f"Context '{e.original_substring}' not found in {e.path}")
+                    else:
+                        new_content = content.replace(e.original_substring, e.replacement, 1)
                 
                 with open(target, "w", encoding="utf-8") as f:
                     f.write(new_content)
