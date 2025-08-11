@@ -20,8 +20,16 @@ def main():
 
     agent = ExecutiveWorker(workspace_root=args.workspace_root, model=args.model, use_enhanced=args.use_enhanced)
     ticket = Ticket(ticket_id=args.id, title=args.title, description=args.description)
-    run_log = agent.execute_ticket(ticket)
-    print(json.dumps(run_log.__dict__, default=lambda o: o.__dict__, indent=2))
+
+    # Wrap execution in a try...finally block to ensure the final log is written even on crash
+    run_log = None
+    try:
+        run_log = agent.execute_ticket(ticket)
+    finally:
+        if run_log:
+            print(json.dumps(run_log.__dict__, default=lambda o: o.__dict__, indent=2))
+        else:
+            print("Agent execution crashed before a run log could be initialized.")
 
 
 if __name__ == "__main__":

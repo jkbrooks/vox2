@@ -61,103 +61,111 @@ class ExecutiveWorker:
         run_log = self._initialize_run_log(ticket, deep_plan)
         self._write_partial_run_log(run_log)  # Write initial state
 
-        print(f"\n🚀 Starting execution cycles for ticket #{ticket.ticket_id}")
-        cycle_count = 0
-        # Increased cycle limit for complex tickets - modern LLMs can handle substantial changes
-        max_cycles = 100 if deep_plan.estimated_complexity in ["high", "epic"] else 50
-        ready = False
-        while not ready and cycle_count < max_cycles:
-            cycle_count += 1
-            print(f"\n🔄 Execution Cycle #{cycle_count}")
-            
-            print("🎯 Selecting Entity of Interest...")
-            eoi = self.pick_eoi_optional(ticket)
-            if eoi:
-                print(f"   ✓ Selected EoI: {eoi.get('label', 'Unknown')} ({eoi.get('path', 'No path')})")
-            else:
-                print("   ℹ️  No specific EoI selected")
-            run_log.eoi = eoi
-            self._write_partial_run_log(run_log)  # Update with EOI
-
-            print("📝 Generating system prompt with deep planning context...")
-            prompt = self.generate_system_prompt(ticket, eoi, deep_plan)
-
-            print("🎯 Creating execution plan...")
-            plan = self.plan_current_cycle(prompt)
-            print(f"   ✓ Generated plan with {len(plan)} steps")
-            run_log.plan_steps = len(plan)
-            self._write_partial_run_log(run_log)  # Update with plan info
-
-            print("⚡ Executing plan with error recovery...")
-            step_results = self._execute_plan_with_incremental_logging(ticket, plan, run_log)
-            
-            print("🔍 Validating changes...")
-            validation = self.validate_changes()
-            print(f"   📊 Compilation: {'✅ PASS' if validation.compiled else '❌ FAIL'}")
-            if validation.tests:
-                print(f"   🧪 Tests: {'✅ PASS' if validation.tests.passed else '❌ FAIL'}")
-            run_log.validation = validation
-            self._write_partial_run_log(run_log)  # Update with validation
-
-            print("📋 Updating task tree...")
-            self.update_task_tree(ticket, step_results, validation)
-            
-            # Only commit if we have substantial changes and validation passes
-            should_commit = (
-                validation.compiled and 
-                validation.tests and validation.tests.passed and
-                len(step_results) >= 3  # Only commit if we made substantial progress
-            )
-            
-            if should_commit:
-                print("💾 Committing substantial progress...")
-                commit_sha = self.commit_and_push(ticket)
-                if commit_sha:
-                    print(f"   ✓ Committed: {commit_sha[:8]}")
-                    run_log.commits.append(commit_sha)
-                    self._write_partial_run_log(run_log)  # Update with commit
-                else:
-                    print("   ℹ️  No changes to commit")
-            else:
-                print("💾 Deferring commit until substantial progress is made")
-
-            print("✅ Checking if ready to submit...")
-            ready = self.check_ready_to_submit(ticket, validation, deep_plan)
-            
-            if not ready:
-                print("   🔄 Not ready yet, continuing to next cycle...")
-            else:
-                print("   🎉 Ready to submit!")
+        try:
+            print(f"\n🚀 Starting execution cycles for ticket #{ticket.ticket_id}")
+            cycle_count = 0
+            # Increased cycle limit for complex tickets - modern LLMs can handle substantial changes
+            max_cycles = 100 if deep_plan.estimated_complexity in ["high", "epic"] else 50
+            ready = False
+            while not ready and cycle_count < max_cycles:
+                cycle_count += 1
+                print(f"\n🔄 Execution Cycle #{cycle_count}")
                 
-        # Check if we hit cycle limit
-        if cycle_count >= max_cycles and not ready:
-            print(f"❌ Hit maximum cycle limit ({max_cycles}), execution failed")
-            run_log.status = "failed_max_cycles"
-            run_log.error = f"Agent failed to complete ticket after {max_cycles} cycles"
-        else:
-            run_log.status = "completed"
-
-        # Final completion
-        print(f"\n🎉 Ticket #{ticket.ticket_id} completed successfully!")
-        print(f"   📊 Total cycles: {cycle_count}")
-        print(f"   💾 Commits made: {len(run_log.commits)}")
-        print(f"   ⏱️  Run ID: {run_log.run_id}")
-        
-        run_log.end_ts = dt.datetime.utcnow().isoformat()
-        run_log.affected_nodes = [
-            AffectedNode(
-                id=f"node-{ticket.ticket_id}",
-                status="partial",
-                coverage_pct=10,
-                evidence={"commits": run_log.commits, "files": []},
-                note="initial pass",
-            )
-        ]
-        run_log.reflections = [{"type": "decision", "message": "MVP cycle executed"}]
-        self._write_partial_run_log(run_log)  # Final complete log
-        
-        print(f"📄 Run log saved: {self._current_run_filename}")
-        return run_log
+                print("🎯 Selecting Entity of Interest...")
+                eoi = self.pick_eoi_optional(ticket)
+                if eoi:
+                    print(f"   ✓ Selected EoI: {eoi.get('label', 'Unknown')} ({eoi.get('path', 'No path')})")
+                else:
+                    print("   ℹ️  No specific EoI selected")
+                run_log.eoi = eoi
+                self._write_partial_run_log(run_log)  # Update with EOI
+    
+                print("📝 Generating system prompt with deep planning context...")
+                prompt = self.generate_system_prompt(ticket, eoi, deep_plan)
+    
+                print("🎯 Creating execution plan...")
+                plan = self.plan_current_cycle(prompt)
+                print(f"   ✓ Generated plan with {len(plan)} steps")
+                run_log.plan_steps = len(plan)
+                self._write_partial_run_log(run_log)  # Update with plan info
+    
+                print("⚡ Executing plan with error recovery...")
+                step_results = self._execute_plan_with_incremental_logging(ticket, plan, run_log)
+                
+                print("🔍 Validating changes...")
+                validation = self.validate_changes()
+                print(f"   📊 Compilation: {'✅ PASS' if validation.compiled else '❌ FAIL'}")
+                if validation.tests:
+                    print(f"   🧪 Tests: {'✅ PASS' if validation.tests.passed else '❌ FAIL'}")
+                run_log.validation = validation
+                self._write_partial_run_log(run_log)  # Update with validation
+    
+                print("📋 Updating task tree...")
+                self.update_task_tree(ticket, step_results, validation)
+                
+                # Only commit if we have substantial changes and validation passes
+                should_commit = (
+                    validation.compiled and 
+                    validation.tests and validation.tests.passed and
+                    len(step_results) >= 3  # Only commit if we made substantial progress
+                )
+                
+                if should_commit:
+                    print("💾 Committing substantial progress...")
+                    commit_sha = self.commit_and_push(ticket)
+                    if commit_sha:
+                        print(f"   ✓ Committed: {commit_sha[:8]}")
+                        run_log.commits.append(commit_sha)
+                        self._write_partial_run_log(run_log)  # Update with commit
+                    else:
+                        print("   ℹ️  No changes to commit")
+                else:
+                    print("💾 Deferring commit until substantial progress is made")
+    
+                print("✅ Checking if ready to submit...")
+                ready = self.check_ready_to_submit(ticket, validation, deep_plan)
+                
+                if not ready:
+                    print("   🔄 Not ready yet, continuing to next cycle...")
+                else:
+                    print("   🎉 Ready to submit!")
+                    
+            # Check if we hit cycle limit
+            if cycle_count >= max_cycles and not ready:
+                print(f"❌ Hit maximum cycle limit ({max_cycles}), execution failed")
+                run_log.status = "failed_max_cycles"
+                run_log.error = f"Agent failed to complete ticket after {max_cycles} cycles"
+            else:
+                run_log.status = "completed"
+    
+            # Final completion
+            print(f"\n🎉 Ticket #{ticket.ticket_id} completed successfully!")
+            print(f"   📊 Total cycles: {cycle_count}")
+            print(f"   💾 Commits made: {len(run_log.commits)}")
+            print(f"   ⏱️  Run ID: {run_log.run_id}")
+            
+            run_log.end_ts = dt.datetime.utcnow().isoformat()
+            run_log.affected_nodes = [
+                AffectedNode(
+                    id=f"node-{ticket.ticket_id}",
+                    status="partial",
+                    coverage_pct=10,
+                    evidence={"commits": run_log.commits, "files": []},
+                    note="initial pass",
+                )
+            ]
+            run_log.reflections = [{"type": "decision", "message": "MVP cycle executed"}]
+            self._write_partial_run_log(run_log)  # Final complete log
+            
+            print(f"📄 Run log saved: {self._current_run_filename}")
+            return run_log
+        except Exception as e:
+            run_log.status = "CRASHED"
+            run_log.error = f"Agent crashed with exception: {e}"
+            run_log.end_ts = dt.datetime.utcnow().isoformat()
+            self._write_partial_run_log(run_log)
+            print(f"💥 Agent crashed! Final run log saved to {self._current_run_filename}")
+            raise e
 
     # --- Phase II: Deep Planning ---
     def analyze_requirements_and_plan(self, ticket: Ticket) -> DeepPlan:
